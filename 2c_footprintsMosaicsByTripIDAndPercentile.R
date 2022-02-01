@@ -1,7 +1,5 @@
 library(data.table)
-#library(raster)
 library(terra)
-#library(sf)
 
 # This scripts pulls builds mosaic rasters by tripid and percentile
 # and then writes new rasters

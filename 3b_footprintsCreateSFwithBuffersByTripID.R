@@ -2,6 +2,7 @@
 library(data.table)
 library(sf)
 library(dplyr)
+library(terra)
 
 # This script builds a SF containing the vtr buffers, by percentile and trip id
 
@@ -43,7 +44,7 @@ listOfSFGs <- unlist(listPolygons, recursive = FALSE)
 
 sfcBuffersByPercentileAndTripID <- st_sfc(listOfSFGs, crs = st_crs(listPolygons[[1]]))
 
-sfBuffersByPercentileAndTripID = st_sf(geometry = sfcBuffersByPercentileAndTripID)
+sfBuffersByPercentileAndTripID <- st_sf(geometry = sfcBuffersByPercentileAndTripID)
 
 sfBuffersByPercentileAndTripID <- cbind(geometry = sfBuffersByPercentileAndTripID,
     trip_ID = dtLocalPathsForVTRBMosaic_ByPercentileAndTripID$trip_ID,
@@ -52,5 +53,5 @@ sfBuffersByPercentileAndTripID <- cbind(geometry = sfBuffersByPercentileAndTripI
 remove(listRasters, listPolygons, listOfSFGs, sfcBuffersByPercentileAndTripID)
 
 saveRDS(object = sfBuffersByPercentileAndTripID,
-        file= paste0(outputDir, "sfBuffersByPercentileAndTripID.rds"))
+        file= paste0(outputDir, "/sfBuffersByPercentileAndTripID.rds"))
 
