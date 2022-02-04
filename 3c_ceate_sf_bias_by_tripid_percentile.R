@@ -1,4 +1,4 @@
-# Loading packages
+# Load packages
 library(data.table)
 library(sf)
 library(dplyr)
@@ -15,20 +15,19 @@ library(dplyr)
 pwd <- dirname(rstudioapi::getActiveDocumentContext()$path)
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
-repositoryName <- "MSA_Wind_FootprintBias"
-basePath <- "C:/Users/lianne.allen-jacobso/Documents/"
-pwdCheck <- paste0(basePath, "Repositories/",repositoryName)
-pwd == pwdCheck
+repository <- "MSA_Wind_FootprintBias"
+path_base <- "C:/Users/lianne.allen-jacobso/Documents/"
+check_pwd <- paste0(path_base, "Repositories/",repository)
+pwd == check_pwd
 
-outputDir <- paste0(basePath, "Output/", repositoryName)
-dataDir <- paste0(basePath, "Data/", repositoryName)
+dir_output <- paste0(path_base, "Output/", repository)
+dir_data <- paste0(path_base, "Data/", repository)
 
 ##############################
 # Pull in data
-sfBuffersByPercentileAndTripID <- 
-  readRDS(paste0(outputDir, "/sfBuffersByPercentileAndTripID.rds"))
+sf_vtrb_split_mosaic <- readRDS(paste0(dir_output, "/sf_vtrb_split_mosaic.rds"))
 
-sfHullsByTripID <- readRDS( file = paste0(outputDir, "/sfHullsByTripID.rds"))
+sf_hulls_attributes <- readRDS(file = paste0(dir_output, "/sf_hulls_attributes.rds"))
 
 ##############################
 # create empty data.table, will be coerced into SF when sf rows are added below
@@ -36,32 +35,29 @@ sfHullsByTripID <- readRDS( file = paste0(outputDir, "/sfHullsByTripID.rds"))
 tmp <- st_sfc()
 class(tmp)[1] <- "sfc_GEOMETRY" # for geometry collection
 # set names/structure to match sf is loop below
-sfBias_ByPercentileAndTripID <- st_sf(trip_id_chr=character(0),
-                                      area = numeric(0),
-                                      type=character(0),
-                                      percentile=character(0),
-                                      trip_ID=character(0),
-                                      geometry=tmp)
+sf_bias <- st_sf(tripid_chr=character(0), area = numeric(0), type=character(0),
+                 percentile=character(0), tripid=character(0), geometry=tmp)
 
-thisCRS <- st_crs(sfBuffersByPercentileAndTripID) #extract CRS from exiting SF
+thisCRS <- st_crs(sf_vtrb_split_mosaic) #extract CRS from exiting SF
 
-st_crs(sfBias_ByPercentileAndTripID) <- thisCRS #set CRS to match existing SF
+st_crs(sf_bias) <- thisCRS #set CRS to match existing SF
 
-#uniqueTrips <- unique(sfHullsByTripID$trip_id_chr) # not all ids in SFCH are in VTRB set
-uniqueTrips <- unique(sfBuffersByPercentileAndTripID$trip_ID)
+#uniqueTrips <- unique(sf_hulls_attributes$tripid_chr) # not all ids in SFCH are in VTRB set
+uniqueTrips <- unique(sf_vtrb_split_mosaic$tripid)
 
-for (thisTrip in uniqueTrips) {
+#this_trip <- uniqueTrips[[1]]
+for (this_trip in uniqueTrips) {
   # filter rows in CH that match trip_id
   # select id only (with geometry)
-  thisSFCH <- sfHullsByTripID %>%
-    filter(trip_id_chr == thisTrip) %>%
-    select(trip_id_chr)
+  thisSFCH <- sf_hulls_attributes %>%
+    filter(tripid_chr == this_trip) %>%
+    select(tripid_chr)
   
   # filter rows in VTRB that match trip_id
   # select percentile only (with geometry)
-  thisVTRB <- sfBuffersByPercentileAndTripID %>%
-    filter(trip_ID == thisTrip) %>%
-    select(trip_ID, percentile)
+  thisVTRB <- sf_vtrb_split_mosaic %>%
+    filter(tripid == this_trip) %>%
+    select(tripid, percentile)
   
   # calculate intersection (later repeat this for difference)
   sfIntersection <- st_intersection(thisSFCH, thisVTRB) # creates new SF with intersection as geometry
@@ -73,14 +69,14 @@ for (thisTrip in uniqueTrips) {
   
   # calculate false positives and negatives: geometry and area
   sfFalsePositive <- st_difference(thisVTRB, thisSFCH) # creates new SF with intersection as geometry
-  if(length(sfFalsePositive$trip_ID) > 0 ){
+  if(length(sfFalsePositive$tripid) > 0 ){
     sfFalsePositive <- sfFalsePositive %>%  # creates new sf
       mutate(area = st_area(.) %>% as.numeric()) %>%
       cbind(type = "falsePositive")
   }
   
   sfFalseNegative <- st_difference(thisSFCH, thisVTRB) # creates new SF with intersection as geometry
-  if(length(sfFalseNegative$trip_ID) > 0 ){
+  if(length(sfFalseNegative$tripid) > 0 ){
     sfFalseNegative <- sfFalseNegative %>%  # creates new sf
       mutate(area = st_area(.) %>% as.numeric()) %>%
       cbind(type = "falseNegative")
@@ -88,25 +84,25 @@ for (thisTrip in uniqueTrips) {
   
   sfSFCH <- thisSFCH %>%
     mutate(area = st_area(.) %>% as.numeric()) %>%
-    cbind(type = "sfch", percentile = "", trip_ID = thisSFCH$trip_id_chr) %>%
+    cbind(type = "sfch", percentile = "", tripid = thisSFCH$tripid_chr) %>%
     st_cast()
   
   sfVTRB <- thisVTRB %>%
     mutate(area = st_area(.) %>% as.numeric()) %>%
-    cbind(type = "vtrb", trip_id_chr = thisVTRB$trip_ID)
+    cbind(type = "vtrb", tripid_chr = thisVTRB$tripid)
   
   
-  if(length(sfFalsePositive$trip_ID) == 0 ){
-    sfBias_ByPercentileAndTripID <- rbind(sfBias_ByPercentileAndTripID, sfVTRB, sfSFCH,
+  if(length(sfFalsePositive$tripid) == 0 ){
+    sf_bias <- rbind(sf_bias, sfVTRB, sfSFCH,
                                           sfIntersection, sfFalseNegative)
-  } else if (length(sfFalseNegative$trip_ID) == 0 ){
-    sfBias_ByPercentileAndTripID <- rbind(sfBias_ByPercentileAndTripID, sfVTRB, sfSFCH,
+  } else if (length(sfFalseNegative$tripid) == 0 ){
+    sf_bias <- rbind(sf_bias, sfVTRB, sfSFCH,
                                           sfIntersection, sfFalsePositive)
   } else {
-    sfBias_ByPercentileAndTripID <- rbind(sfBias_ByPercentileAndTripID, sfVTRB, sfSFCH,
+    sf_bias <- rbind(sf_bias, sfVTRB, sfSFCH,
                                           sfIntersection, sfFalsePositive, sfFalseNegative) 
   }
   }
 
-saveRDS(object = sfBias_ByPercentileAndTripID,
-        file= paste0(outputDir, "/sfBias_ByPercentileAndTripID.rds"))
+saveRDS(object = sf_bias,
+        file= paste0(dir_output, "/sf_bias.rds"))
