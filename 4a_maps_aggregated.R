@@ -176,6 +176,9 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate.png"),
                            style = north_arrow_fancy_orienteering) +
     theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
 
-(p <- plot_grid(plot_aggregate_hull_tot_loligo,
+(plot_catch_aggregate <- plot_grid(plot_aggregate_hull_tot_loligo,
                 plot_aggregate_hull_prop_loligo, nrow = 1,
                align = "hv", axis = "l")) #
+
+ggsave2(filename = paste0(dir_output, "/plot_catch_aggregate.png"),
+        plot = plot_catch_aggregate, width = 11, height = 8)
