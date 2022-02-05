@@ -38,69 +38,69 @@ class(tmp)[1] <- "sfc_GEOMETRY" # for geometry collection
 sf_bias <- st_sf(tripid_chr=character(0), area = numeric(0), type=character(0),
                  percentile=character(0), tripid=character(0), geometry=tmp)
 
-thisCRS <- st_crs(sf_vtrb_split_mosaic) #extract CRS from exiting SF
+this_crs <- st_crs(sf_vtrb_split_mosaic) #extract CRS from exiting SF
 
-st_crs(sf_bias) <- thisCRS #set CRS to match existing SF
+st_crs(sf_bias) <- this_crs #set CRS to match existing SF
 
-#uniqueTrips <- unique(sf_hulls_attributes$tripid_chr) # not all ids in SFCH are in VTRB set
-uniqueTrips <- unique(sf_vtrb_split_mosaic$tripid)
+#unique_trips <- unique(sf_hulls_attributes$tripid_chr) # not all ids in SFCH are in VTRB set
+unique_trips <- unique(sf_vtrb_split_mosaic$tripid)
 
-#this_trip <- uniqueTrips[[1]]
-for (this_trip in uniqueTrips) {
+#this_trip <- unique_trips[[1]]
+for (this_trip in unique_trips) {
   # filter rows in CH that match trip_id
   # select id only (with geometry)
-  thisSFCH <- sf_hulls_attributes %>%
+  this_sfch <- sf_hulls_attributes %>%
     filter(tripid_chr == this_trip) %>%
     select(tripid_chr)
   
   # filter rows in VTRB that match trip_id
   # select percentile only (with geometry)
-  thisVTRB <- sf_vtrb_split_mosaic %>%
+  this_vtrb <- sf_vtrb_split_mosaic %>%
     filter(tripid == this_trip) %>%
     select(tripid, percentile)
   
   # calculate intersection (later repeat this for difference)
-  sfIntersection <- st_intersection(thisSFCH, thisVTRB) # creates new SF with intersection as geometry
+  sf_intersection <- st_intersection(this_sfch, this_vtrb) # creates new SF with intersection as geometry
   
   # calculate intersection area
-  sfIntersection <- sfIntersection %>%  # creates new sf
+  sf_intersection <- sf_intersection %>%  # creates new sf
     mutate(area = st_area(.) %>% as.numeric()) %>%
     cbind(type = "intersection")
   
   # calculate false positives and negatives: geometry and area
-  sfFalsePositive <- st_difference(thisVTRB, thisSFCH) # creates new SF with intersection as geometry
-  if(length(sfFalsePositive$tripid) > 0 ){
-    sfFalsePositive <- sfFalsePositive %>%  # creates new sf
+  sf_false_positive <- st_difference(this_vtrb, this_sfch) # creates new SF with intersection as geometry
+  if(length(sf_false_positive$tripid) > 0 ){
+    sf_false_positive <- sf_false_positive %>%  # creates new sf
       mutate(area = st_area(.) %>% as.numeric()) %>%
-      cbind(type = "falsePositive")
+      cbind(type = "false_positive")
   }
   
-  sfFalseNegative <- st_difference(thisSFCH, thisVTRB) # creates new SF with intersection as geometry
-  if(length(sfFalseNegative$tripid) > 0 ){
-    sfFalseNegative <- sfFalseNegative %>%  # creates new sf
+  sf_false_negative <- st_difference(this_sfch, this_vtrb) # creates new SF with intersection as geometry
+  if(length(sf_false_negative$tripid) > 0 ){
+    sf_false_negative <- sf_false_negative %>%  # creates new sf
       mutate(area = st_area(.) %>% as.numeric()) %>%
-      cbind(type = "falseNegative")
+      cbind(type = "false_negative")
   }
   
-  sfSFCH <- thisSFCH %>%
+  sf_sfch <- this_sfch %>%
     mutate(area = st_area(.) %>% as.numeric()) %>%
-    cbind(type = "sfch", percentile = "", tripid = thisSFCH$tripid_chr) %>%
+    cbind(type = "sfch", percentile = "", tripid = this_sfch$tripid_chr) %>%
     st_cast()
   
-  sfVTRB <- thisVTRB %>%
+  sf_vtrb <- this_vtrb %>%
     mutate(area = st_area(.) %>% as.numeric()) %>%
-    cbind(type = "vtrb", tripid_chr = thisVTRB$tripid)
+    cbind(type = "vtrb", tripid_chr = this_vtrb$tripid)
   
   
-  if(length(sfFalsePositive$tripid) == 0 ){
-    sf_bias <- rbind(sf_bias, sfVTRB, sfSFCH,
-                                          sfIntersection, sfFalseNegative)
-  } else if (length(sfFalseNegative$tripid) == 0 ){
-    sf_bias <- rbind(sf_bias, sfVTRB, sfSFCH,
-                                          sfIntersection, sfFalsePositive)
+  if(length(sf_false_positive$tripid) == 0 ){
+    sf_bias <- rbind(sf_bias, sf_vtrb, sf_sfch,
+                     sf_intersection, sf_false_negative)
+  } else if (length(sf_false_negative$tripid) == 0 ){
+    sf_bias <- rbind(sf_bias, sf_vtrb, sf_sfch,
+                     sf_intersection, sf_false_positive)
   } else {
-    sf_bias <- rbind(sf_bias, sfVTRB, sfSFCH,
-                                          sfIntersection, sfFalsePositive, sfFalseNegative) 
+    sf_bias <- rbind(sf_bias, sf_vtrb, sf_sfch,
+                     sf_intersection, sf_false_positive, sf_false_negative) 
   }
   }
 
