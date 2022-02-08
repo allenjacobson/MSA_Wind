@@ -95,9 +95,11 @@ for (this_trip in unique_trips) {
   if(length(sf_false_positive$tripid) == 0 ){
     sf_bias <- rbind(sf_bias, sf_vtrb, sf_sfch,
                      sf_intersection, sf_false_negative)
+    print(paste0("no false positive for this trip:", this_trip))
   } else if (length(sf_false_negative$tripid) == 0 ){
     sf_bias <- rbind(sf_bias, sf_vtrb, sf_sfch,
                      sf_intersection, sf_false_positive)
+    print(paste0("no false negative for this trip:", this_trip))
   } else {
     sf_bias <- rbind(sf_bias, sf_vtrb, sf_sfch,
                      sf_intersection, sf_false_positive, sf_false_negative) 
