@@ -108,3 +108,8 @@ for (this_trip in unique_trips) {
 
 saveRDS(object = sf_bias,
         file= paste0(dir_output, "/sf_bias.rds"))
+
+#only one warning printed
+#"no false negative for this trip:33033916051107"
+
+# includes 221 unique trips = wittout fixing code
