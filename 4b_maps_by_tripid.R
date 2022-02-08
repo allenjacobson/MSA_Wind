@@ -5,6 +5,8 @@ library(sf)
 library(dplyr)
 library( ggplot2)
 library (cowplot)
+library(ggspatial)
+library(stringr)
 
 # This script creates maps for each trip
 
@@ -38,7 +40,7 @@ sf_bias <- readRDS(paste0(dir_output, "/sf_bias.rds"))
 
 #sf_bias is missing trips - only contains 117 - instead of 220
 unique_trips <- unique(sf_bias$tripid)
-this_trip <- unique_trips[[4]]
+#this_trip <- unique_trips[[4]]
 
 for (this_trip in unique_trips) {
   these_vtrb <- sf_bias %>%
@@ -47,6 +49,8 @@ for (this_trip in unique_trips) {
   this_sfch <- sf_bias %>%
     filter(tripid==this_trip, type == "sfch")
   
+  this_sfch  <-cbind(this_sfch, shape = "convex hull")
+  
   # Change ordering manually
   these_vtrb$percentile <- factor(these_vtrb$percentile,
                                   levels = c("100th", "75th", "50th", "25th"))
@@ -54,12 +58,13 @@ for (this_trip in unique_trips) {
   this_plot<- ggplot()+
     geom_sf(data=these_vtrb, aes(fill = percentile), color = NA)+
     scale_fill_viridis_d(direction = -1)+
-    geom_sf(data=this_sfch, aes(color= tripid), fill=NA, size = 4)+
+    geom_sf(data=this_sfch, aes(color= shape), fill=NA, size = 4)+
     scale_color_manual(values = alpha("red", .5))+
     xlab("Longitude")+
     ylab("Latitude")+
-    labs(title = "Comparison by trip",
-         fill = "Percentile") +
+    labs(title = paste0("Comparison by trip: ", this_trip),
+         fill = "VTR Footprint by Percentile",
+         color = "Study Fleet Footprint") +
     annotation_scale(location = "br", width_hint = 0.5) +
     annotation_north_arrow(location = "br", which_north = "true", 
                            pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
@@ -79,10 +84,10 @@ for (this_trip in unique_trips) {
   
   these_false_positives <- sf_bias %>%
     filter(tripid==this_trip, type == "false_positive")
-  
+
   these_false_negatives <- sf_bias %>%
     filter(tripid==this_trip, type == "false_negative")
-  
+
   # Change ordering manually
   these_false_negatives$percentile <- factor(these_false_negatives$percentile,
                                              levels = c("100th", "75th", "50th", "25th"))
@@ -96,28 +101,20 @@ for (this_trip in unique_trips) {
   this_bias <- rbind(these_intersections,
                      these_false_positives,
                      these_false_negatives)
+
+  this_bias$type2 <- str_replace(this_bias$type, "_", " ")
   
-  (plotTest <- ggplot() +
+  this_plot <- ggplot() +
       geom_rect(data = these_intersections, aes(color=percentile), size = 2,
                 fill = NA, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) +
       scale_color_viridis_d(direction = -1)+
-      geom_sf(data=these_false_positives, fill="black")+
-      geom_sf(data=these_false_negatives, fill="red")+
-      geom_sf(data = these_intersections, fill="grey")+
-      facet_wrap(~ percentile, nrow = 1,  )+
-      xlab("Longitude") + ylab("Latitude"))
-  
-  (this_plot <- ggplot() +
-      geom_rect(data = these_intersections, aes(color=percentile), size = 2,
-                fill = NA, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) +
-      scale_color_viridis_d(direction = -1)+
-      geom_sf(data=this_bias, aes(fill=type))+
+      geom_sf(data=this_bias, aes(fill=type2))+
       scale_fill_manual(values=c("red", "black", "grey"))+
       facet_wrap(~ percentile, nrow = 1)+
-      xlab("Longitude") + ylab("Latitude"))+
-    labs(title = paste0("Mismatch  by trip: ", this_trip),
-         color = 'Percentile',
-         fill = "Mismatch type")
+      xlab("Longitude") + ylab("Latitude")+
+      guides(color = "none")+
+      labs(title = paste0("Mismatch by trip: ", this_trip),
+           fill = NULL)
   
   ggsave(filename = paste0(dir_output, "/mismatch_by_tripid/",this_trip,".png"),
          plot = this_plot, width = 11, height = 4)
