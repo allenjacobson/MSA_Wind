@@ -1,6 +1,3 @@
-# 4a plot all - merged and separate then merge
-# 4b plot by trip
-# 4c plot summary data
 
 # Loading packages
 library(data.table)
@@ -9,7 +6,7 @@ library(dplyr)
 library( ggplot2)
 library (cowplot)
 
-# This script creates plots from SF
+# This script creates maps for each trip
 
 ##############################
 # Functions
@@ -39,84 +36,97 @@ sf_bias <- readRDS(paste0(dir_output, "/sf_bias.rds"))
 ##############################
 #Plot by trip
 
-#labels="AUTO") #c('All VTR buffers for trip', 'Zoomed in on all GPS points from trip')
+#sf_bias is missing trips - only contains 117 - instead of 220
+unique_trips <- unique(sf_bias$tripid)
+this_trip <- unique_trips[[4]]
 
-#fileName <- paste0("output/tripImages/plotAllByCatchTotalAndRatio.png")
-#save_plot(filename = fileName, plot = p,
-#          base_height = 8,
-#          base_width = 11)
+for (this_trip in unique_trips) {
+  these_vtrb <- sf_bias %>%
+    filter(tripid==this_trip, type == "vtrb")
+  
+  this_sfch <- sf_bias %>%
+    filter(tripid==this_trip, type == "sfch")
+  
+  # Change ordering manually
+  these_vtrb$percentile <- factor(these_vtrb$percentile,
+                                  levels = c("100th", "75th", "50th", "25th"))
+  
+  this_plot<- ggplot()+
+    geom_sf(data=these_vtrb, aes(fill = percentile), color = NA)+
+    scale_fill_viridis_d(direction = -1)+
+    geom_sf(data=this_sfch, aes(color= tripid), fill=NA, size = 4)+
+    scale_color_manual(values = alpha("red", .5))+
+    xlab("Longitude")+
+    ylab("Latitude")+
+    labs(title = "Comparison by trip",
+         fill = "Percentile") +
+    annotation_scale(location = "br", width_hint = 0.5) +
+    annotation_north_arrow(location = "br", which_north = "true", 
+                           pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+                           style = north_arrow_fancy_orienteering)
+    #theme(legend.position = c(.1, .8)) #First: L = 0, R = 1;Second: T = 1, B = 0
+  
+  ggsave(filename = paste0(dir_output, "/vtrb_sfch_by_tripid/",this_trip,".png"),
+         plot = this_plot, width = 11, height = 8)
+  }
+
+##############################
+# Plot bias by trip
+
+for (this_trip in unique_trips) {
+  these_intersections <- sf_bias %>%
+    filter(tripid==this_trip, type == "intersection")
+  
+  these_false_positives <- sf_bias %>%
+    filter(tripid==this_trip, type == "false_positive")
+  
+  these_false_negatives <- sf_bias %>%
+    filter(tripid==this_trip, type == "false_negative")
+  
+  # Change ordering manually
+  these_false_negatives$percentile <- factor(these_false_negatives$percentile,
+                                             levels = c("100th", "75th", "50th", "25th"))
+  # Change ordering manually
+  these_false_positives$percentile <- factor(these_false_positives$percentile,
+                                             levels = c("100th", "75th", "50th", "25th"))
+  # Change ordering manually
+  these_intersections$percentile <- factor(these_intersections$percentile,
+                                           levels = c("100th", "75th", "50th", "25th"))
+  
+  this_bias <- rbind(these_intersections,
+                     these_false_positives,
+                     these_false_negatives)
+  
+  (plotTest <- ggplot() +
+      geom_rect(data = these_intersections, aes(color=percentile), size = 2,
+                fill = NA, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) +
+      scale_color_viridis_d(direction = -1)+
+      geom_sf(data=these_false_positives, fill="black")+
+      geom_sf(data=these_false_negatives, fill="red")+
+      geom_sf(data = these_intersections, fill="grey")+
+      facet_wrap(~ percentile, nrow = 1,  )+
+      xlab("Longitude") + ylab("Latitude"))
+  
+  (this_plot <- ggplot() +
+      geom_rect(data = these_intersections, aes(color=percentile), size = 2,
+                fill = NA, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) +
+      scale_color_viridis_d(direction = -1)+
+      geom_sf(data=this_bias, aes(fill=type))+
+      scale_fill_manual(values=c("red", "black", "grey"))+
+      facet_wrap(~ percentile, nrow = 1)+
+      xlab("Longitude") + ylab("Latitude"))+
+    labs(title = paste0("Mismatch  by trip: ", this_trip),
+         color = 'Percentile',
+         fill = "Mismatch type")
+  
+  ggsave(filename = paste0(dir_output, "/mismatch_by_tripid/",this_trip,".png"),
+         plot = this_plot, width = 11, height = 4)
+  }
 
 
-## Plots of VTRB
 
-# rbind difference result to summary table
-#vtrbColors <- c("#388E3C", "#689F38", "#AFB42B", "#FDD835") # 25, 50, 75, 100
-
-vtrbColors <- c("#FDD835", "#AFB42B", "#689F38", "#388E3C") # 100, 75, 50, 25
-
-# Error in how trip_ID is added to sf - go back to 3c
-
-uniqueTrips <- unique(sfBias_ByPercentileAndTripID$trip_ID)
-thisTrip <- uniqueTrips[[4]]
-
-#for (thisTrip in uniqueTrips) {
-
-theseVTRB <- sfBias_ByPercentileAndTripID %>%
-  filter(trip_ID==thisTrip, type == "vtrb")
-
-thisSFCH <- sfBias_ByPercentileAndTripID %>%
-  filter(trip_ID==thisTrip, type == "sfch")
-
-theseIntersections <- sfBias_ByPercentileAndTripID %>%
-  filter(trip_ID==thisTrip, type == "intersection")
-
-theseFalsePositives <- sfBias_ByPercentileAndTripID %>%
-  filter(trip_ID==thisTrip, type == "falsePositive")
-
-theseFalseNegatives <- sfBias_ByPercentileAndTripID %>%
-  filter(trip_ID==thisTrip, type == "falseNegative")
-
-# Change ordering manually
-theseVTRB$percentile <- factor(theseVTRB$percentile,
-                              levels = c("100th", "75th", "50th", "25th"))
-
-# Change ordering manually
-theseFalseNegatives$percentile <- factor(theseFalseNegatives$percentile,
-                               levels = c("100th", "75th", "50th", "25th"))
-# Change ordering manually
-theseFalsePositives$percentile <- factor(theseFalsePositives$percentile,
-                               levels = c("100th", "75th", "50th", "25th"))
-# Change ordering manually
-theseIntersections$percentile <- factor(theseIntersections$percentile,
-                               levels = c("100th", "75th", "50th", "25th"))
-## Separate for loop to plot
-# plot to test
-(plotTest <- ggplot() +
-  geom_sf(data = theseVTRB, aes(fill = percentile), colour = NA)+
-  scale_fill_viridis_d(direction = -1)+
-  #scale_fill_manual(values=vtrbColors)+
-  geom_sf(data=thisSFCH, color= "red", fill="red", alpha = 0.5, size = 1, linetype="dotted")+
-  xlab("Longitude") + ylab("Latitude"))
-
-#thesePercentiles <- theseFalseNegatives$percentile
-#thisPercentile <- thesePercentiles[[1]]
-#thisPercentile <- thesePercentiles[[2]]
-# 
-# plotTest <- ggplot(data = theseVTRB[theseVTRB$percentile == "100th",]) +
-#   geom_sf(color = "grey", fill = NA)+
-#   geom_sf(data = theseVTRB[theseVTRB$percentile == thisPercentile,], fill = "#388E3C")+
-#   geom_sf(data=theseFalseNegatives[theseFalseNegatives$percentile == thisPercentile,], fill="red")+
-#   geom_sf(data=theseFalsePositives[theseFalsePositives$percentile == thisPercentile,], fill="black")+
-#   xlab("Longitude") + ylab("Latitude")
-
-
-(plotTest <- ggplot() +
-    geom_rect(data = theseIntersections, aes(color=percentile), size = 2,
-              fill = NA, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) +
-    scale_color_viridis_d(direction = -1)+
-    #scale_fill_viridis_d(direction = -1)+
-    geom_sf(data=theseFalsePositives, fill="black")+
-    geom_sf(data=theseFalseNegatives, fill="red")+
-    geom_sf(data = theseIntersections, fill="grey")+
-    facet_wrap(~ percentile, nrow = 1,  )+
-    xlab("Longitude") + ylab("Latitude"))
+#33033916070114_twoSpaced
+#32064517052800_three
+#31047319062808_smaller
+#31047319052908_two
+#15077317070701_ideal
