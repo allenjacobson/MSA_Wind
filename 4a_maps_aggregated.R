@@ -136,7 +136,7 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate.png"),
 #Plot all convex hulls together with features
 (plot_aggregate_hull_tot_loligo <- ggplot(sf_hulls_attributes) +
    geom_sf(aes(fill=Summed_SUM_LOLIGO_CATCH), color = NA)+
-   scale_fill_viridis_b(direction = -1, alpha = 0.5)+
+   scale_fill_viridis_c(direction = -1, alpha = 0.5, option = "magma")+
    geom_sf(data=single_hull, aes(color=Hull) ,fill=NA, size = 4)+
    scale_color_manual(values = alpha("grey", .75))+
    xlab("Longitude")+
@@ -149,8 +149,8 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate.png"),
    theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
 
 (plot_aggregate_hull_prop_loligo <- ggplot(sf_hulls_attributes) +
-    geom_sf(aes(fill=Mean_prop_loligo))+
-    scale_fill_viridis_b(direction = -1, alpha = 0.5)+
+    geom_sf(aes(fill=Mean_prop_loligo), color = NA)+
+    scale_fill_viridis_c(direction = -1, alpha = 0.5, option = "magma")+
     geom_sf(data=single_hull, aes(color=Hull) ,fill=NA, size = 4)+
     scale_color_manual(values = alpha("grey", .75))+
     xlab("Longitude")+
@@ -164,7 +164,7 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate.png"),
 
 (plotAllByMonth <- ggplot(sf_hulls_attributes) +
     geom_sf(aes(fill=MONTH))+
-    scale_fill_viridis_b(direction = -1, alpha = 0.5)+
+    scale_fill_viridis_c(direction = -1, alpha = 0.5, option = "magma")+
     geom_sf(data=single_hull, aes(color=Hull) ,fill=NA, size = 4)+
     scale_color_manual(values = alpha("grey", .75))+
     xlab("Longitude")+
@@ -176,9 +176,13 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate.png"),
                            style = north_arrow_fancy_orienteering) +
     theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
 
+
 (plot_catch_aggregate <- plot_grid(plot_aggregate_hull_tot_loligo,
                 plot_aggregate_hull_prop_loligo, nrow = 1,
                align = "hv", axis = "l")) #
 
 ggsave2(filename = paste0(dir_output, "/plot_catch_aggregate.png"),
         plot = plot_catch_aggregate, width = 11, height = 8)
+
+## Create table of aggregate data
+
