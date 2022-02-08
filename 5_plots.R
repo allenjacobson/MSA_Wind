@@ -40,13 +40,61 @@ sf_vtrb_split_mosaic <- readRDS(paste0(dir_output, "/sf_vtrb_split_mosaic.rds"))
 sf_bias <- readRDS(paste0(dir_output, "/sf_bias.rds"))
 
 ##############################
-#plot area diff - over/underestimation
+#data prep
 
+# estimate area of of sfch
+sf_hulls_attributes <- sf_hulls_attributes %>%
+  mutate(area = st_area(.) %>% as.numeric())
+
+# eatimate area of vtrb
+sf_vtrb_split_mosaic <- sf_vtrb_split_mosaic %>%
+  mutate(area = st_area(.) %>% as.numeric())
+
+# create new dt with both
+dt_vtrb <- as.data.table(sf_vtrb_split_mosaic)
+setnames(dt_vtrb, "area", "vtrb_area")
+dt_sfch <- as.data.table(sf_hulls_attributes)
+dt_sfch <- dt_sfch[, .(tripid_chr, area)]
+setnames(dt_sfch, "area", "sfch_area")
+dt_area <- dt_vtrb[dt_sfch, on = .(tripid = tripid_chr)]
+
+# take the log ratio
+dt_area[, log_ratio := log(sfch_area/vtrb_area)]
+
+# prep bias dt
 dt_bias <- as.data.table(sf_bias)
 
-dt_bias_size <- dt_bias[type %in% c("false_positive", "false_negative"),
-                        .(tripid, percentile, area, type, tripid_chr)]
+dt_bias <- dt_bias[type %in% c("false_positive", "false_negative"),
+                        .(tripid, percentile, area, type)]
   
+dt_bias$percentile <- factor(dt_bias$percentile,
+                                  levels = c("25th", "50th", "75th", "100th"))
+
+dt_bias_summary <- dt_bias[, .(total_bias = sum(area)), by = .(percentile, type)]
+
+
+##############################
+#plot area diff - over/underestimationggplot(data = dt_bias_size)+
+
+plot_log_ratio <- ggplot(data = dt_area) +
+  stat_summary(aes(x = percentile, y = log_ratio, fill = percentile),
+               fun.data=MinMeanSEMMax, geom="boxplot", show.legend = FALSE) + 
+  theme_classic(base_size = 16)+
+  geom_hline(yintercept=0, linetype="dashed", color = "red")+
+  xlab("Percentile")
+
+# plot mismatch
+plot_mismatch <- ggplot( data = dt_bias_summary)+
+  geom_bar(aes(x = percentile, y = total_bias, fill = type), stat = "identity")+
+  scale_fill_manual(values=c("red", "black"))+
+  #scale_y_log10()+
+  xlab("Percentile")+
+  ylab("False Area")+
+  labs(title = "False positives and Negatives")
+  
+##############################
+# old plots
+
 dtOverUnderEstimation <-  data.table(percentile = as.factor(dtSummaryByTripID[, percentile]),
                                      areaDiffVTRBminusCH = dtSummaryByTripID$areaDiffVTRBminusCH,
                                      areaVTR = dtSummaryByTripID$areaVTR,
