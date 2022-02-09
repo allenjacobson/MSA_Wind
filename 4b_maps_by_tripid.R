@@ -35,6 +35,8 @@ sf_hulls_attributes <- readRDS(file = paste0(dir_output, "/sf_hulls_attributes.r
 
 sf_bias <- readRDS(paste0(dir_output, "/sf_bias.rds"))
 
+sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
+
 ##############################
 #Plot by trip
 
@@ -51,6 +53,9 @@ for (this_trip in unique_trips) {
   
   this_sfch  <-cbind(this_sfch, shape = "convex hull")
   
+  these_points <- sf_gte_nad83 %>%
+    filter(tripid_chr==this_trip)
+  
   # Change ordering manually
   these_vtrb$percentile <- factor(these_vtrb$percentile,
                                   levels = c("100th", "75th", "50th", "25th"))
@@ -60,9 +65,14 @@ for (this_trip in unique_trips) {
     scale_fill_viridis_d(direction = -1)+
     geom_sf(data=this_sfch, aes(color= shape), fill=NA, size = 4)+
     scale_color_manual(values = alpha("red", .5))+
+    geom_sf(data = these_points, aes(shape = area),
+            size = 1, alpha = .25, color = "white")+
     xlab("Longitude")+
     ylab("Latitude")+
+    guides(shape = "none")+
     labs(title = paste0("Comparison by trip: ", this_trip),
+         subtitle = paste0("includes ", length(these_points$trip_id), " GPS points and ",
+                           length(unique(these_points$area)), " area(s)"),
          fill = "VTR Footprint by Percentile",
          color = "Study Fleet Footprint") +
     annotation_scale(location = "br", width_hint = 0.5) +
@@ -127,3 +137,69 @@ for (this_trip in unique_trips) {
 #31047319062808_smaller
 #31047319052908_two
 #15077317070701_ideal
+
+##############################
+# Example plots of ideal trip for presentation 
+this_trip = "15077317070701"
+
+these_vtrb <- sf_bias %>%
+  filter(tripid==this_trip, type == "vtrb")
+
+this_sfch <- sf_bias %>%
+  filter(tripid==this_trip, type == "sfch")
+
+this_sfch  <-cbind(this_sfch, shape = "convex hull")
+
+these_points <- sf_gte_nad83 %>%
+  filter(tripid_chr==this_trip)
+
+# Change ordering manually
+these_vtrb$percentile <- factor(these_vtrb$percentile,
+                                levels = c("100th", "75th", "50th", "25th"))
+
+# single convex hull with points
+plot_example_sfch<- ggplot()+
+  geom_sf(data=these_vtrb, aes(fill = percentile), color = NA)+
+  scale_fill_viridis_d(direction = -1)+
+  geom_sf(data=this_sfch, aes(color= shape), fill=NA, size = 4)+
+  scale_color_manual(values = alpha("red", .5))+
+  geom_sf(data = these_points, aes(shape = area), size = 1, alpha = .25)+
+  xlab("Longitude")+
+  ylab("Latitude")+
+  labs(title = paste0("Comparison by trip: ", this_trip),
+       subtitle = paste0("includes ", length(these_points$trip_id), " GPS points and ",
+                         length(unique(these_points$area)), " area(s)"),
+       fill = "VTR Footprint by Percentile",
+       color = "Study Fleet Footprint",
+       shape = "Area") +
+  annotation_scale(location = "br", width_hint = 0.5) +
+  annotation_north_arrow(location = "br", which_north = "true", 
+                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+                         style = north_arrow_fancy_orienteering)
+
+ggsave(filename = paste0(dir_output, "/plot_example_sfch_",this_trip,".png"),
+       plot = plot_example_sfch, width = 11, height = 8)
+
+# single vtrb without points
+plot_example_vtrb<- ggplot()+
+  geom_sf(data=these_vtrb, aes(fill = percentile), color = NA)+
+  scale_fill_viridis_d(direction = -1)+
+  geom_sf(data=this_sfch, aes(color= shape), fill=NA, size = 4)+
+  scale_color_manual(values = alpha("red", .5))+
+  geom_sf(data = these_points, aes(shape = area), size = 1, alpha = .25)+
+  xlab("Longitude")+
+  ylab("Latitude")+
+  labs(title = paste0("Comparison by trip: ", this_trip),
+       subtitle = paste0("includes ", length(these_points$trip_id), " GPS points and ",
+                         length(unique(these_points$area)), " area(s)"),
+       fill = "VTR Footprint by Percentile",
+       color = "Study Fleet Footprint",
+       shape = "Area") +
+  annotation_scale(location = "br", width_hint = 0.5) +
+  annotation_north_arrow(location = "br", which_north = "true", 
+                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+                         style = north_arrow_fancy_orienteering)
+
+ggsave(filename = paste0(dir_output, "/plot_example_vtrb_",this_trip,".png"),
+       plot = plot_example_vtrb, width = 11, height = 8)
+}
