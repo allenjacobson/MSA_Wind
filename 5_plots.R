@@ -1,6 +1,7 @@
 # Loading packages
 library(data.table)
 library(sf)
+library(dplyr)
 library(ggplot2)
 library(cowplot)
 
@@ -53,13 +54,24 @@ sf_vtrb_split_mosaic <- sf_vtrb_split_mosaic %>%
 # create new dt with both
 dt_vtrb <- as.data.table(sf_vtrb_split_mosaic)
 setnames(dt_vtrb, "area", "vtrb_area")
+
 dt_sfch <- as.data.table(sf_hulls_attributes)
 dt_sfch <- dt_sfch[, .(tripid_chr, area)]
 setnames(dt_sfch, "area", "sfch_area")
-dt_area <- dt_vtrb[dt_sfch, on = .(tripid = tripid_chr)]
+
+#join two tables
+setkey(dt_vtrb, tripid)
+setkey(dt_sfch, tripid_chr)
+dt_area <- dt_vtrb[dt_sfch, nomatch = 0]
 
 # take the log ratio
-dt_area[, log_ratio := log(sfch_area/vtrb_area)]
+dt_area[, log_ratio := log(vtrb_area/sfch_area)][
+  , diff := vtrb_area - sfch_area][
+  , log_over_under := ifelse(log_ratio > 1, "over", ifelse(log_ratio < 1, "under", "equal"))][
+  , diff_over_under := ifelse(diff > 0, "over", ifelse(log_ratio < 0, "under", "equal"))]
+
+dt_area$percentile <- factor(dt_area$percentile,
+                             levels = c("25th", "50th", "75th", "100th"))
 
 # prep bias dt
 dt_bias <- as.data.table(sf_bias)
@@ -76,21 +88,37 @@ dt_bias_summary <- dt_bias[, .(total_bias = sum(area)), by = .(percentile, type)
 ##############################
 #plot area diff - over/underestimationggplot(data = dt_bias_size)+
 
-plot_log_ratio <- ggplot(data = dt_area) +
+(plot_ratio <- ggplot(data = dt_area) +
+   geom_boxplot(aes(x=percentile, y=log_ratio, fill=percentile)))
+   
+
+(plot_log_ratio <- ggplot(data = dt_area) +
   stat_summary(aes(x = percentile, y = log_ratio, fill = percentile),
                fun.data=MinMeanSEMMax, geom="boxplot", show.legend = FALSE) + 
   theme_classic(base_size = 16)+
   geom_hline(yintercept=0, linetype="dashed", color = "red")+
-  xlab("Percentile")
+  xlab("Percentile"))
+
+(plot_hist_log <- ggplot(dt_area) +  
+  geom_histogram( aes(x = log_ratio, fill = log_over_under),
+                  position = "stack", boundary=1, bins = 15)+
+  scale_fill_manual(values=c("black", "red"))+
+  facet_wrap(~ percentile, nrow = 4))
+
+(plot_hist_diff <- ggplot(dt_area) +  
+    geom_histogram( aes(x = diff, fill = diff_over_under),
+                    position = "stack", boundary=0, bins = 15)+
+    scale_fill_manual(values=c("black", "red"))+
+    facet_wrap(~ percentile, nrow = 4))
 
 # plot mismatch
-plot_mismatch <- ggplot( data = dt_bias_summary)+
+(plot_mismatch <- ggplot( data = dt_bias_summary)+
   geom_bar(aes(x = percentile, y = total_bias, fill = type), stat = "identity")+
   scale_fill_manual(values=c("red", "black"))+
   #scale_y_log10()+
   xlab("Percentile")+
   ylab("False Area")+
-  labs(title = "False positives and Negatives")
+  labs(title = "False positives and negatives: cumulative area"))
   
 ##############################
 # old plots
@@ -140,45 +168,6 @@ g1 <- ggplot(data = summaryOverUnder) +
                 width=0.4, size=1.3)
 
 ##############################
-# Log ratio with mean, +/- se, and min/max
-plotLogRatio <- ggplot(data = dtOverUnderEstimation,
-             aes(x = percentile, y = lnArea_VTR_SF,
-                 fill = percentile, na.rm = TRUE)) +
-  scale_fill_manual(values=vtrbColors)+
-  stat_summary(fun.data=MinMeanSEMMax, geom="boxplot", show.legend = FALSE) + 
-  theme_classic(base_size = 16)+
-  geom_hline(yintercept=0, linetype="dashed", color = "red")+
-  xlab("Percentile")+
-  ylab(paste0("Log Ratio"))
-  #ggtitle("Over/Under estimation by percentile")
-          #subtitle = "Center: mean \nBox bounds: +/- standard error \nBar: range")
-
-ggsave("output/plotLogRatio.png", plot = plotLogRatio,
-       width = 9,
-       height = 6,
-       units ="in")
-
-##############################
-#Plot without 100
-dtOverUnderEstimationTrimmed <- dtOverUnderEstimation[percentile != "100th"]
-
-vtrbColors <- c("#388E3C", "#689F38", "#AFB42B") # 25, 50, 75, 100
-
-dtOverUnderEstimationTrimmed$percentile <- factor(dtOverUnderEstimationTrimmed$percentile,       # Change ordering manually
-                                                  levels = c("25th", "50th", "75th"))
-
-plotOverUnderEstimationTrimmed <- ggplot(data = dtOverUnderEstimationTrimmed,
-                                         aes(x = percentile, y = areaDiffVTRBminusCH,
-                                             fill = percentile, na.rm = TRUE))+
-  geom_boxplot()+
-  scale_fill_manual(values=vtrbColors)+
-  xlab("Percentile")+
-  ylab("Difference VTRB - SFCH (m2)")+
-  labs(title = "Which VTRB percentile matches SFCH by area?")
-
-ggsave("output/plotOverUnderEstimationTrimmed.png", plot = plotOverUnderEstimationTrimmed)
-
-##############################
 #Plot areas diff as histogram  
 dtOverUnderEstimation[, overUnder :=
                         ifelse(dtOverUnderEstimation$areaDiffVTRBminusCH >0, "Over",
@@ -199,150 +188,4 @@ histOverUnder<- ggplot(dtOverUnderEstimation,
   facet_wrap(~ percentile, nrow = 4)+
   scale_y_log10()
 
-##############################
-#Plot total mismatch
-dtTotalMismatch <- data.table(percentile = as.factor(dtSummaryByTripID[, percentile]),
-                              falsePositive = dtSummaryByTripID$falsePositiveVTRB,
-                              falseNegative = dtSummaryByTripID$falseNegativeVTRB)
 
-dtTotalMismatch[, totalMismatch := falsePositive+falseNegative]
-
-vtrbColors <- c("#388E3C", "#689F38", "#AFB42B", "#FDD835") # 25, 50, 75, 100
-
-dtTotalMismatch$percentile <- factor(dtTotalMismatch$percentile,       # Change ordering manually
-                                     levels = c("25th", "50th", "75th", "100th"))
-
-ploTotalMismatch <- ggplot(data = dtTotalMismatch,
-                           aes(x = percentile, y = totalMismatch,
-                               fill = percentile, na.rm = TRUE))+
-  geom_boxplot()+
-  scale_fill_manual(values=vtrbColors)+
-  xlab("Percentile")+
-  ylab("Total Mismatch (m2)")+
-  labs(title = "Total Mismatch")
-##############################
-#Plot mismatch by false positive vs negative
-dtMismatchPositives <-  data.table(percentile = as.factor(dtSummaryByTripID[, percentile]),
-                                   falseArea = dtSummaryByTripID$falsePositiveVTRB,
-                                   PositiveNegative = "Positive")
-
-dtMismatchNegatives <-  data.table(percentile = as.factor(dtSummaryByTripID[, percentile]),
-                                   falseArea = dtSummaryByTripID$falseNegativeVTRB,
-                                   PositiveNegative = "Negative")
-
-dtMismatch <- rbind(dtMismatchPositives, dtMismatchNegatives)
-
-vtrbColors <- c("#388E3C", "#689F38", "#AFB42B", "#FDD835") # 25, 50, 75, 100
-
-dtMismatch$percentile <- factor(dtMismatch$percentile,       # Change ordering manually
-                                levels = c("25th", "50th", "75th", "100th"))
-
-summaryMismatch <- dtMismatch[, .(sumFalseArea = sum(falseArea),
-                                  meanFalseArea = mean(falseArea),
-                                  minFalseArea = min(falseArea),
-                                  maxFalseArea = max(falseArea),
-                                  seFalseArea = sd(falseArea)/length(falseArea)),
-                              by = .(percentile, PositiveNegative)]
-
-summaryMismatch[, sumFalseAreaHecatres := sumFalseArea*0.0001]
-
-plotMismatch <- ggplot(data = summaryMismatch,
-                       aes(x = percentile, y = meanFalseArea,
-                           fill = PositiveNegative))+
-  #by = percentile,
-  #na.rm = TRUE))+
-  geom_bar()+# position = "stack", stat = "identity")+
-  scale_fill_manual(values=c("red", "black"))+
-  #scale_y_log10()+
-  xlab("Percentile")+
-  ylab("False Area (hectare)")+
-  #facet_wrap(~ percentile, nrow = 1)+
-  labs(title = "False positives and Negatives")
-
-ggsave("output/plotOverUnderEstimation.png", plot = plotOverUnderEstimation)
-
-##############################
-#Plot data for trip
-uniqueTrips <- unique(dtCumulativeRasterPaths$trip_ID)
-thisTrip <- uniqueTrips[1]
-dtPlottedTrips <- data.table()
-
-for (thisTrip in uniqueTrips) {
-  dtTrip <- dtCumulativeRasterPaths[trip_ID==thisTrip]
-  dt25 <- dtTrip[percentile=="25th"]
-  dt50 <- dtTrip[percentile=="50th"]
-  dt75 <- dtTrip[percentile=="75th"]
-  dt100 <- dtTrip[percentile=="100th"]
-  
-  polygon25 <- dt25$polygons[[1]]
-  polygon50 <- dt50$polygons[[1]]
-  polygon75 <- dt75$polygons[[1]]
-  polygon100 <- dt100$polygons[[1]]
-  
-  convexHullTrip <- dt100$convexHulls[[1]]
-  
-  bboxTripBuffer<- st_bbox(dt100$polygons[[1]])
-  xNudgeBuffer <- (bboxTripBuffer$xmax-bboxTripBuffer$xmin)*0.05
-  yNudgeBuffer <- (bboxTripBuffer$ymax-bboxTripBuffer$ymin)*0.05
-  
-  plotBuffer <- ggplot(data = theMap) +
-    geom_sf(color = NA, fill = "#1976D2")+
-    geom_sf(data = polygon100, color = NA, fill = "#FDD835")+
-    geom_sf(data = polygon75, color = NA, fill = "#AFB42B")+
-    geom_sf(data = polygon50, color = NA, fill = "#689F38")+
-    geom_sf(data = polygon25, color = NA, fill = "#388E3C")+
-    geom_sf(data=convexHullTrip, color = "red", fill="red", alpha = 0.25, size = 1)+
-    coord_sf(xlim = c(bboxTripBuffer$xmin-xNudgeBuffer, bboxTripBuffer$xmax+(xNudgeBuffer)),
-             ylim = c(bboxTripBuffer$ymin-yNudgeBuffer, bboxTripBuffer$ymax+(yNudgeBuffer)),
-             expand = TRUE)+
-    xlab("Longitude") + ylab("Latitude")
-  
-  # plot points, modify shape of point by effort area
-  bboxTrip<- st_bbox(convexHullTrip)
-  
-  plotGPS <- ggplot(data = theMap) +
-    geom_sf(color = NA, fill = "#1976D2")+
-    geom_sf(data = polygon100, color = NA, fill = "#FDD835")+
-    geom_sf(data = polygon75, color = NA, fill = "#AFB42B")+
-    geom_sf(data = polygon50, color = NA, fill = "#689F38")+
-    geom_sf(data = polygon25, color = NA, fill = "#388E3C")+
-    geom_sf(data=convexHullTrip, color= "red", fill="red", alpha = 0.25, size = 1)+
-    #geom_sf(data=polygonTrip, fill=NA, color = "white", size = 1, alpha = .5)+
-    #geom_sf(data=thesePoints, aes(shape=area, color = area))+
-    coord_sf(xlim = c(bboxTrip$xmin, bboxTrip$xmax),
-             ylim = c(bboxTrip$ymin, bboxTrip$ymax),
-             expand = TRUE)+
-    xlab("Longitude") + ylab("Latitude")
-  
-  # merge plots
-  
-  p <- plot_grid(plotBuffer, plotGPS, nrow = 2) #
-  #labels="AUTO") #c('All VTR buffers for trip', 'Zoomed in on all GPS points from trip')
-  
-  title <- ggdraw() +
-    draw_label(paste0("Trip:", thisTrip,
-                      "\nVTR buffers: yellow | SF convex hull: red")
-               , fontface='bold')
-  
-  plotTrip <- plot_grid(title, p, ncol=1,rel_heights=c(0.1, 1) ) # rel_heights values control title margins
-  
-  fileName <- paste("output/tripImages/vtrbANDsfch/",thisTrip, sep = "_")
-  fileName <- paste(fileName, ".png", sep = "")
-  save_plot(filename = fileName, plot = plotTrip)
-}
-
-##############################
-#Identify overlapping areas for cumulative rasters
-intersectionArea <- mapply(function(vtrb, sfch) st_intersection(vtrb, sfch[1]),
-                           dtCumulativeRasterPaths$polygons, dtCumulativeRasterPaths$convexHulls) 
-
-dtCumulativeRasterPaths <-cbind(dtCumulativeRasterPaths, intersectsTest)
-#saveRDS(dtCumulativeRasterPaths, "output/dtCumulativeRasterPaths.rds")
-
-areaCumulativeVTRB <- lapply(X = dtCumulativeRasterPaths$polygons, FUN = st_area)
-areaConvexHull <- lapply(X = dtCumulativeRasterPaths$convexHulls, FUN = st_area)
-dtCumulativeRasterPaths <-cbind(dtCumulativeRasterPaths, areaCumulativeVTRBM2 = unlist(areaCumulativeVTRB))
-dtCumulativeRasterPaths <-cbind(dtCumulativeRasterPaths, areaConvexHullM2 = unlist(areaConvexHull))
-dtCumulativeRasterPaths[, areaDiffVTRBminusCH := areaCumulativeVTRBM2 - areaConvexHullM2]
-
-#saveRDS(dtCumulativeRasterPaths, "output/dtCumulativeRasterPaths.rds")
