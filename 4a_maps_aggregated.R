@@ -41,7 +41,10 @@ sf_bias <- readRDS(paste0(dir_output, "/sf_bias.rds"))
 # catch is in lbs
 # effort_dur is in hrs
 sf_hulls_attributes <- sf_hulls_attributes %>%
-  mutate(cpue = Summed_SUM_LOLIGO_CATCH/Summed_effort_dur)
+  mutate(cpue = Summed_SUM_LOLIGO_CATCH/Summed_effort_dur,
+         season = ifelse(MONTH %in% c(1,2,3,4), "Jan-Apr",
+                         ifelse( MONTH %in% c(5,6,7,8), "May-Aug",
+                                 "Sep-Dec")))
 
 #create single hull, add column with labels by plot
 single_hull <- sf_gte_nad83 %>%
@@ -91,7 +94,9 @@ sf_false_negative_aggregate <- sf_false_negative_aggregate %>%  # creates new sf
 sf_bias_aggregate <- rbind(sf_intersection_aggregate,
                            sf_false_positive_aggregate,
                            sf_false_negative_aggregate)
-                 
+
+sf_bias_aggregate$type2 <- str_replace(sf_bias_aggregate$type, "_", " ")
+
 
 ##############################
 #Plot all points as hull with all buffers
@@ -99,12 +104,12 @@ sf_bias_aggregate <- rbind(sf_intersection_aggregate,
   geom_sf(data=sf_vtrb_split_mosaic, aes(fill = percentile), color = NA)+
   scale_fill_viridis_d(direction = -1)+
   geom_sf(data=single_hull, aes(color=Hull) ,fill=NA, size = 4)+
-  scale_color_manual(values = alpha("grey", .75))+
+  scale_color_manual(values = alpha("red", .5))+
   xlab("Longitude")+
   ylab("Latitude")+
   labs(title = "Comparison of footprints: aggregated all trips in pilot study",
-       fill = "VTR Footprint by Percentile",
-       color = "Study Fleet Footprint") +
+       fill = "VTR footprint by percentile",
+       color = "Active fishing footprint") +
   annotation_scale(location = "br", width_hint = 0.5) +
   annotation_north_arrow(location = "br", which_north = "true", 
                          pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
@@ -121,7 +126,7 @@ ggsave(filename = paste0(dir_output, "/plot_aggregate.png"),
              fill = NA, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) +
    scale_color_viridis_d(direction = -1)+
    #scale_fill_viridis_d(direction = -1)+
-   geom_sf(data=sf_bias_aggregate, aes(fill=type))+
+   geom_sf(data=sf_bias_aggregate, aes(fill=type2))+
    scale_fill_manual(values=c("red", "black", "grey"))+
    facet_wrap(~ percentile, nrow = 1)+
    xlab("Longitude") +
@@ -132,6 +137,30 @@ ggsave(filename = paste0(dir_output, "/plot_aggregate.png"),
 
 ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate.png"),
        plot = plot_mismatch_aggregate, width = 11, height = 4)
+
+#Plot mismatch, 100th only
+
+sf_bias_aggregate_100 <- sf_bias_aggregate %>%
+  filter(percentile=="100th")
+  
+
+(plot_mismatch_aggregate_100 <- ggplot() +
+    geom_rect(data = sf_bias_aggregate_100, aes(color=percentile), size = 2,
+              fill = NA, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) +
+    scale_color_viridis_d(direction = -1)+
+    #scale_fill_viridis_d(direction = -1)+
+    geom_sf(data=sf_bias_aggregate_100, aes(fill=type2))+
+    scale_fill_manual(values=c("red", "black", "grey"))+
+    facet_wrap(~ percentile, nrow = 1)+
+    xlab("Longitude") +
+    ylab("Latitude") +
+    guides(color = "none")+
+    labs(title = paste0("Mismatch: aggregated all trips in pilot study"),
+         fill = NULL))
+
+ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate_100.png"),
+       plot = plot_mismatch_aggregate_100, width = 11, height = 4)
+
 
 ##############################
 #Plot all convex hulls together with features
@@ -147,8 +176,8 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate.png"),
    annotation_scale(location = "br", width_hint = 0.5) +
    annotation_north_arrow(location = "br", which_north = "true", 
                           pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
-                          style = north_arrow_fancy_orienteering) +
-   theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
+                          style = north_arrow_fancy_orienteering)) #+
+#   theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
 
 (plot_aggregate_hull_prop_loligo <- ggplot(sf_hulls_attributes) +
     geom_sf(aes(fill=Mean_prop_loligo), color = NA)+
@@ -162,8 +191,8 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate.png"),
     annotation_scale(location = "br", width_hint = 0.5) +
     annotation_north_arrow(location = "br", which_north = "true", 
                            pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
-                           style = north_arrow_fancy_orienteering) +
-    theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
+                           style = north_arrow_fancy_orienteering)) #+
+#    theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
 
 (plot_aggregate_hull_cpue <- ggplot(sf_hulls_attributes) +
     geom_sf(aes(fill=cpue), color = NA)+
@@ -177,12 +206,12 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate.png"),
     annotation_scale(location = "br", width_hint = 0.5) +
     annotation_north_arrow(location = "br", which_north = "true", 
                            pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
-                           style = north_arrow_fancy_orienteering) +
-    theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
+                           style = north_arrow_fancy_orienteering)) # +
+#    theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
 
-(plotAllByMonth <- ggplot(sf_hulls_attributes) +
-    geom_sf(aes(fill=MONTH))+
-    scale_fill_viridis_c(direction = -1, alpha = 0.5, option = "magma")+
+(plot_aggregate_hull_season <- ggplot(sf_hulls_attributes) +
+    geom_sf(aes(fill=season), color = NA)+
+    scale_fill_viridis_d(alpha = 0.3, option = "magma", end = .8)+
     geom_sf(data=single_hull, aes(color=Hull) ,fill=NA, size = 4)+
     scale_color_manual(values = alpha("grey", .75))+
     xlab("Longitude")+
@@ -192,16 +221,19 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate.png"),
     annotation_scale(location = "br", width_hint = 0.5) +
     annotation_north_arrow(location = "br", which_north = "true", 
                            pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
-                           style = north_arrow_fancy_orienteering) +
-    theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
+                           style = north_arrow_fancy_orienteering))# +
+#    theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
 
 
 (plot_catch_aggregate <- plot_grid(plot_aggregate_hull_tot_loligo,
-                plot_aggregate_hull_prop_loligo, plot_aggregate_hull_cpue, nrow = 1,
-               align = "hv", axis = "l")) #
+                plot_aggregate_hull_prop_loligo,
+                plot_aggregate_hull_cpue,
+                plot_aggregate_hull_season,
+                nrow = 2, ncol = 2,
+                align = "hv", axis = "l")) #
 
 ggsave2(filename = paste0(dir_output, "/plot_catch_aggregate.png"),
-        plot = plot_catch_aggregate, width = 11, height = 8)
+        plot = plot_catch_aggregate, width = 8, height = 11)
 
 ## Create table of aggregate data
 
