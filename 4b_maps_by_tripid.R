@@ -4,7 +4,8 @@ library(data.table)
 library(sf)
 library(dplyr)
 library( ggplot2)
-library (cowplot)
+library(ggpubr)
+#library (cowplot)
 library(ggspatial)
 library(stringr)
 
@@ -76,13 +77,16 @@ for (this_trip in unique_trips) {
          fill = "VTR Footprint by Percentile",
          color = "Study Fleet Footprint") +
     annotation_scale(location = "br", width_hint = 0.5) +
-    annotation_north_arrow(location = "br", which_north = "true", 
-                           pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+    annotation_north_arrow(location = "br", which_north = "true",
+                           height = unit(.3, "in"), width = unit(.3, "in"), 
+                           pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
                            style = north_arrow_fancy_orienteering)
-    #theme(legend.position = c(.1, .8)) #First: L = 0, R = 1;Second: T = 1, B = 0
+
+width = 8
+height = width*.618
   
-  ggsave(filename = paste0(dir_output, "/vtrb_sfch_by_tripid/",this_trip,".png"),
-         plot = this_plot, width = 11, height = 8)
+ggsave(filename = paste0(dir_output, "/vtrb_sfch_by_tripid/",this_trip,".png"),
+       plot = this_plot, width = width, height = height)
   }
 
 ##############################
@@ -115,19 +119,23 @@ for (this_trip in unique_trips) {
   this_bias$type2 <- str_replace(this_bias$type, "_", " ")
   
   this_plot <- ggplot() +
-      geom_rect(data = these_intersections, aes(color=percentile), size = 2,
-                fill = NA, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) +
-      scale_color_viridis_d(direction = -1)+
-      geom_sf(data=this_bias, aes(fill=type2))+
-      scale_fill_manual(values=c("red", "black", "grey"))+
-      facet_wrap(~ percentile, nrow = 1)+
-      xlab("Longitude") + ylab("Latitude")+
-      guides(color = "none")+
-      labs(title = paste0("Mismatch by trip: ", this_trip),
-           fill = NULL)
+    geom_rect(data = these_intersections, aes(color=percentile), size = 2,
+              fill = NA, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) +
+    scale_color_viridis_d(direction = -1)+
+    geom_sf(data=this_bias, aes(fill=type2), color = NA)+
+    scale_fill_manual(values=c("red", "black", "grey"))+
+    facet_wrap(~ percentile, nrow = 1)+
+    xlab("Longitude") + ylab("Latitude")+
+    guides(color = "none")+
+    theme(axis.text.x = element_text(angle = 90))+
+    labs(title = paste0("Mismatch by trip: ", this_trip),
+         fill = NULL)
+  
+  width = 8
+  height = width*.618
   
   ggsave(filename = paste0(dir_output, "/mismatch_by_tripid/",this_trip,".png"),
-         plot = this_plot, width = 11, height = 4)
+         plot = this_plot, width = width, height = height)
   }
 
 
@@ -138,9 +146,11 @@ for (this_trip in unique_trips) {
 #31047319052908_two
 #15077317070701_ideal
 
+#33033916032417_ideal
+
 ##############################
 # Example plots of ideal trip for presentation 
-this_trip = "15077317070701"
+this_trip = "33033916032417"
 
 these_vtrb <- sf_bias %>%
   filter(tripid==this_trip, type == "vtrb")
@@ -158,48 +168,67 @@ these_vtrb$percentile <- factor(these_vtrb$percentile,
                                 levels = c("100th", "75th", "50th", "25th"))
 
 # single convex hull with points
-plot_example_sfch<- ggplot()+
-  geom_sf(data=these_vtrb, aes(fill = percentile), color = NA)+
-  scale_fill_viridis_d(direction = -1)+
-  geom_sf(data=this_sfch, aes(color= shape), fill=NA, size = 4)+
-  scale_color_manual(values = alpha("red", .5))+
-  geom_sf(data = these_points, aes(shape = area), size = 1, alpha = .25)+
+(plot_example_sfch<- ggplot()+
+  geom_sf(data=this_sfch, color = "red", fill=NA, size = 4)+
+  geom_sf(data = these_points, size = 1, alpha = .1)+
   xlab("Longitude")+
   ylab("Latitude")+
-  labs(title = paste0("Comparison by trip: ", this_trip),
-       subtitle = paste0("includes ", length(these_points$trip_id), " GPS points and ",
-                         length(unique(these_points$area)), " area(s)"),
-       fill = "VTR Footprint by Percentile",
-       color = "Study Fleet Footprint",
-       shape = "Area") +
-  annotation_scale(location = "br", width_hint = 0.5) +
-  annotation_north_arrow(location = "br", which_north = "true", 
-                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
-                         style = north_arrow_fancy_orienteering)
+  labs(title = "Active fishing footprint",
+       subtitle = paste0("Convex hull from\n", length(these_points$trip_id),
+                         " GPS points")))
+
+width = 6
+height = width*.618
 
 ggsave(filename = paste0(dir_output, "/plot_example_sfch_",this_trip,".png"),
-       plot = plot_example_sfch, width = 11, height = 8)
+       plot = plot_example_sfch, width = width, height = height)
 
 # single vtrb without points
-plot_example_vtrb<- ggplot()+
+(plot_example_vtrb<- ggplot()+
   geom_sf(data=these_vtrb, aes(fill = percentile), color = NA)+
   scale_fill_viridis_d(direction = -1)+
-  geom_sf(data=this_sfch, aes(color= shape), fill=NA, size = 4)+
-  scale_color_manual(values = alpha("red", .5))+
-  geom_sf(data = these_points, aes(shape = area), size = 1, alpha = .25)+
   xlab("Longitude")+
   ylab("Latitude")+
-  labs(title = paste0("Comparison by trip: ", this_trip),
-       subtitle = paste0("includes ", length(these_points$trip_id), " GPS points and ",
-                         length(unique(these_points$area)), " area(s)"),
-       fill = "VTR Footprint by Percentile",
-       color = "Study Fleet Footprint",
-       shape = "Area") +
-  annotation_scale(location = "br", width_hint = 0.5) +
-  annotation_north_arrow(location = "br", which_north = "true", 
-                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
-                         style = north_arrow_fancy_orienteering)
+  labs(title = "VTR footprint",
+       subtitle = "built from single, self-reported center of fishing",
+       fill = "Percentile"))
+
+width = 8
+height = width*.618
 
 ggsave(filename = paste0(dir_output, "/plot_example_vtrb_",this_trip,".png"),
-       plot = plot_example_vtrb, width = 11, height = 8)
-}
+       plot = plot_example_vtrb, width = width, height = height)
+
+# Example plots of ideal trip for presentation 
+this_trip = "32064517052800"
+
+these_vtrb <- sf_bias %>%
+  filter(tripid==this_trip, type == "vtrb")
+
+this_sfch <- sf_bias %>%
+  filter(tripid==this_trip, type == "sfch")
+
+this_sfch  <-cbind(this_sfch, shape = "convex hull")
+
+these_points <- sf_gte_nad83 %>%
+  filter(tripid_chr==this_trip)
+
+# Change ordering manually
+these_vtrb$percentile <- factor(these_vtrb$percentile,
+                                levels = c("100th", "75th", "50th", "25th"))
+
+(plot_example_vtrb<- ggplot()+
+    geom_sf(data=these_vtrb, aes(fill = percentile), color = NA)+
+    scale_fill_viridis_d(direction = -1)+
+    xlab("Longitude")+
+    ylab("Latitude")+
+    labs(title = "VTR footprint",
+         subtitle = "built from single, self-reported center of fishing",
+         fill = "Percentile"))
+
+width = 8
+height = width*.618
+
+ggsave(filename = paste0(dir_output, "/plot_example_vtrb_",this_trip,".png"),
+       plot = plot_example_vtrb, width = width, height = height)
+

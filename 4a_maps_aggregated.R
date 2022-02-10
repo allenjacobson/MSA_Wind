@@ -3,10 +3,14 @@ library(data.table)
 library(sf)
 library(dplyr)
 library( ggplot2)
-library (cowplot)
+library(ggpubr)
 library(ggspatial)
+library(stringr)
 
-# This script creates plots for aggregated data
+# This script creates plots for 3 aggregated data
+# 1) Comparison of footprints
+# 2) Mismatch
+# 3) 4-panel plot, showing total catch, prop caught, cpue, and month
 
 ##############################
 # Functions
@@ -107,16 +111,21 @@ sf_bias_aggregate$type2 <- str_replace(sf_bias_aggregate$type, "_", " ")
   scale_color_manual(values = alpha("red", .5))+
   xlab("Longitude")+
   ylab("Latitude")+
-  labs(title = "Comparison of footprints: aggregated all trips in pilot study",
-       fill = "VTR footprint by percentile",
-       color = "Active fishing footprint") +
+  labs(title = "Comparison of footprints",
+       subtitle = "all trips aggregated",
+       fill = "VTR footprint \nby percentile",
+       color = "Active fishing \nfootprint") +
   annotation_scale(location = "br", width_hint = 0.5) +
-  annotation_north_arrow(location = "br", which_north = "true", 
-                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+  annotation_north_arrow(location = "br", which_north = "true",
+                         height = unit(.3, "in"), width = unit(.3, "in"), 
+                         pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
                          style = north_arrow_fancy_orienteering))
 
+height = 8
+width = height*.618
+
 ggsave(filename = paste0(dir_output, "/plot_aggregate.png"),
-       plot = plot_aggregate, width = 8, height = 11)
+       plot = plot_aggregate, width = width, height = height)
 
 ##############################
 #Plot mismatch
@@ -126,17 +135,20 @@ ggsave(filename = paste0(dir_output, "/plot_aggregate.png"),
              fill = NA, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) +
    scale_color_viridis_d(direction = -1)+
    #scale_fill_viridis_d(direction = -1)+
-   geom_sf(data=sf_bias_aggregate, aes(fill=type2))+
+   geom_sf(data=sf_bias_aggregate, aes(fill=type2), color = NA)+
    scale_fill_manual(values=c("red", "black", "grey"))+
    facet_wrap(~ percentile, nrow = 1)+
    xlab("Longitude") +
    ylab("Latitude") +
    guides(color = "none")+
-   labs(title = paste0("Mismatch: aggregated all trips in pilot study"),
+   labs(title = paste0("Mismatch: all trips aggregated"),
        fill = NULL))
 
+width = 8
+height = width*.618
+
 ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate.png"),
-       plot = plot_mismatch_aggregate, width = 11, height = 4)
+       plot = plot_mismatch_aggregate, width = width, height = height)
 
 #Plot mismatch, 100th only
 
@@ -149,17 +161,20 @@ sf_bias_aggregate_100 <- sf_bias_aggregate %>%
               fill = NA, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) +
     scale_color_viridis_d(direction = -1)+
     #scale_fill_viridis_d(direction = -1)+
-    geom_sf(data=sf_bias_aggregate_100, aes(fill=type2))+
+    geom_sf(data=sf_bias_aggregate_100, aes(fill=type2), color = NA)+
     scale_fill_manual(values=c("red", "black", "grey"))+
     facet_wrap(~ percentile, nrow = 1)+
     xlab("Longitude") +
     ylab("Latitude") +
     guides(color = "none")+
-    labs(title = paste0("Mismatch: aggregated all trips in pilot study"),
+    labs(title = paste0("Mismatch: all trips aggregated"),
          fill = NULL))
 
+height = 8
+width = height*.618
+
 ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate_100.png"),
-       plot = plot_mismatch_aggregate_100, width = 11, height = 4)
+       plot = plot_mismatch_aggregate_100, width = width, height = height)
 
 
 ##############################
@@ -172,12 +187,12 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate_100.png"),
    xlab("Longitude")+
    ylab("Latitude")+
    guides(color = "none")+
-   labs(fill = "Total catch (lbs) \nby trip") +
+   labs(fill = "Total catch - lbs") +
    annotation_scale(location = "br", width_hint = 0.5) +
-   annotation_north_arrow(location = "br", which_north = "true", 
-                          pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
-                          style = north_arrow_fancy_orienteering)) #+
-#   theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
+   annotation_north_arrow(location = "br", which_north = "true",
+                          height = unit(.3, "in"), width = unit(.3, "in"), 
+                          pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
+                          style = north_arrow_fancy_orienteering))
 
 (plot_aggregate_hull_prop_loligo <- ggplot(sf_hulls_attributes) +
     geom_sf(aes(fill=Mean_prop_loligo), color = NA)+
@@ -187,12 +202,12 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate_100.png"),
     xlab("Longitude")+
     ylab("Latitude")+
     guides(color = "none")+
-    labs(fill = "Proportion of catch \nby trip") +
+    labs(fill = "Proportion \nof catch") +
     annotation_scale(location = "br", width_hint = 0.5) +
-    annotation_north_arrow(location = "br", which_north = "true", 
-                           pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
-                           style = north_arrow_fancy_orienteering)) #+
-#    theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
+    annotation_north_arrow(location = "br", which_north = "true",
+                           height = unit(.3, "in"), width = unit(.3, "in"), 
+                           pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
+                           style = north_arrow_fancy_orienteering))
 
 (plot_aggregate_hull_cpue <- ggplot(sf_hulls_attributes) +
     geom_sf(aes(fill=cpue), color = NA)+
@@ -202,12 +217,12 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate_100.png"),
     xlab("Longitude")+
     ylab("Latitude")+
     guides(color = "none")+
-    labs(fill = "Catch per unit \neffort (lb/hr)\nby trip") +
+    labs(fill = "Catch per unit \neffort - lb per hr") +
     annotation_scale(location = "br", width_hint = 0.5) +
-    annotation_north_arrow(location = "br", which_north = "true", 
-                           pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
-                           style = north_arrow_fancy_orienteering)) # +
-#    theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
+    annotation_north_arrow(location = "br", which_north = "true",
+                           height = unit(.3, "in"), width = unit(.3, "in"), 
+                           pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
+                           style = north_arrow_fancy_orienteering))
 
 (plot_aggregate_hull_season <- ggplot(sf_hulls_attributes) +
     geom_sf(aes(fill=season), color = NA)+
@@ -217,23 +232,25 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate_100.png"),
     xlab("Longitude")+
     ylab("Latitude")+
     guides(color = "none")+
-    labs(fill = "Month of trip") +
+    labs(fill = "Month") +
     annotation_scale(location = "br", width_hint = 0.5) +
-    annotation_north_arrow(location = "br", which_north = "true", 
-                           pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
-                           style = north_arrow_fancy_orienteering))# +
-#    theme(legend.position = c(.85, .35))) #L = 0, R = 1, T = 1, B = 0
+    annotation_north_arrow(location = "br", which_north = "true",
+                           height = unit(.3, "in"), width = unit(.3, "in"), 
+                           pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
+                           style = north_arrow_fancy_orienteering))
 
+plotlist <- list(plot_aggregate_hull_tot_loligo,
+                 plot_aggregate_hull_prop_loligo,
+                 plot_aggregate_hull_cpue,
+                 plot_aggregate_hull_season)
 
-(plot_catch_aggregate <- plot_grid(plot_aggregate_hull_tot_loligo,
-                plot_aggregate_hull_prop_loligo,
-                plot_aggregate_hull_cpue,
-                plot_aggregate_hull_season,
-                nrow = 2, ncol = 2,
-                align = "hv", axis = "l")) #
+plot_catch_aggregate <- ggarrange(plotlist = plotlist,
+                                  ncol = 2, nrow = 2, align = c("hv"))
+
+height = 11
+width = 8 #height*.618
 
 ggsave2(filename = paste0(dir_output, "/plot_catch_aggregate.png"),
-        plot = plot_catch_aggregate, width = 8, height = 11)
+        plot = plot_catch_aggregate, width = width, height = height)
 
 ## Create table of aggregate data
-
