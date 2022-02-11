@@ -173,6 +173,7 @@ these_vtrb$percentile <- factor(these_vtrb$percentile,
   geom_sf(data = these_points, size = 1, alpha = .1)+
   xlab("Longitude")+
   ylab("Latitude")+
+  theme(axis.text.x = element_text(angle = 90))+
   labs(title = "Active fishing footprint",
        subtitle = paste0("Convex hull from\n", length(these_points$trip_id),
                          " GPS points")))
@@ -190,7 +191,7 @@ ggsave(filename = paste0(dir_output, "/plot_example_sfch_",this_trip,".png"),
   xlab("Longitude")+
   ylab("Latitude")+
   labs(title = "VTR footprint",
-       subtitle = "built from single, self-reported center of fishing",
+       subtitle = "one VTR footprints per trip",
        fill = "Percentile"))
 
 width = 8
@@ -223,7 +224,7 @@ these_vtrb$percentile <- factor(these_vtrb$percentile,
     xlab("Longitude")+
     ylab("Latitude")+
     labs(title = "VTR footprint",
-         subtitle = "built from single, self-reported center of fishing",
+         subtitle = "multiple VTR footprints per trip",
          fill = "Percentile"))
 
 width = 8

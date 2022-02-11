@@ -100,7 +100,7 @@ dt_bias_summary$type2 <- str_replace(dt_bias_summary$type, "_", " ")
   facet_wrap(~ percentile, nrow = 1)+
   coord_flip()+
   ylab("Count: number of trips")+
-  xlab("Size bias in VTR Footprint*")+
+  xlab("Size bias*")+
   labs(title = "Size bias",
        subtitle = "Does VTR footprint over or underestimate active fishing footprint?",
        caption = expression(paste("*Bias = Ln",
@@ -135,8 +135,8 @@ ggsave(filename = paste0(dir_output, "/plot_hist_log.png"),
   scale_fill_manual(values=c("red", "black"))+
   #scale_y_log10()+
   xlab("Percentile")+
-  ylab("Spatial mismatch*")+
-  labs(title = "Spatial mismatch",
+  ylab("Mismatch*")+
+  labs(title = "Mismatch",
        subtitle ="Can we minimize false positives and negatives?",
        caption = "*cumulative area across all trips",
        fill = NULL))

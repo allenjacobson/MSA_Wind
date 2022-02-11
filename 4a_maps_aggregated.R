@@ -111,7 +111,7 @@ sf_bias_aggregate$type2 <- str_replace(sf_bias_aggregate$type, "_", " ")
   scale_color_manual(values = alpha("red", .5))+
   xlab("Longitude")+
   ylab("Latitude")+
-  labs(title = "Comparison of footprints",
+  labs(title = "Size bias",
        subtitle = "all trips aggregated",
        fill = "VTR footprint \nby percentile",
        color = "Active fishing \nfootprint") +
@@ -141,8 +141,9 @@ ggsave(filename = paste0(dir_output, "/plot_aggregate.png"),
    xlab("Longitude") +
    ylab("Latitude") +
    guides(color = "none")+
-   labs(title = paste0("Mismatch: all trips aggregated"),
-       fill = NULL))
+   labs(title = "Mismatch",
+        subtitle = "all trips aggregated",
+        fill = NULL))
 
 width = 8
 height = width*.618
@@ -167,7 +168,8 @@ sf_bias_aggregate_100 <- sf_bias_aggregate %>%
     xlab("Longitude") +
     ylab("Latitude") +
     guides(color = "none")+
-    labs(title = paste0("Mismatch: all trips aggregated"),
+    labs(title = "Mismatch",
+         subtitle = "100th percentile",
          fill = NULL))
 
 height = 8
@@ -186,6 +188,7 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate_100.png"),
    scale_color_manual(values = alpha("grey", .75))+
    xlab("Longitude")+
    ylab("Latitude")+
+   theme(axis.text.x = element_text(angle = 90))+
    guides(color = "none")+
    labs(fill = "Total catch - lbs") +
    annotation_scale(location = "br", width_hint = 0.5) +
@@ -254,3 +257,16 @@ ggsave2(filename = paste0(dir_output, "/plot_catch_aggregate.png"),
         plot = plot_catch_aggregate, width = width, height = height)
 
 ## Create table of aggregate data
+#filter attributes for subset
+dt_attributes <- as.data.table(sf_hulls_attributes)
+
+dt_attributes<- dt_attributes[tripid_chr %in% sf_vtrb_split_mosaic$tripid]
+
+length(unique(dt_attributes$VESSEL_NAME.x))
+length(unique(dt_attributes$tripid_chr))
+min(dt_attributes$YEAR)
+max(dt_attributes$YEAR)
+unique(dt_attributes$MONTH)
+
+length(unique(sf_vtrb_split_mosaic$tripid))
+
