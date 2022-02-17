@@ -44,7 +44,7 @@ st_crs(sf_bias) <- this_crs #set CRS to match existing SF
 
 #unique_trips <- unique(sf_hulls_attributes_imgid$tripid_chr) # not all ids in SFCH are in VTRB set
 unique_trips <- unique(sf_vtrb_cumulative_imgid$imgid)
-this_trip <- unique_trips[[16]]
+this_trip <- unique_trips[[29]]
 
 for (this_trip in unique_trips) {
   # filter rows in CH that match trip_id

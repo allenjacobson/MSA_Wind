@@ -29,9 +29,11 @@ dt_paths_vtrb <- readRDS(paste0(dir_output, "/dt_paths_vtrb.rds"))
 # create empty data table to add summary data
 dt_paths_vtrb_split <- data.table()
 unique_imgids <- dt_paths_vtrb$imgid #identify unique imgids for loop
+#this_imgid <- unique_imgids[[1]]
 
 for (this_imgid in unique_imgids) {
   this_tripid <- dt_paths_vtrb[imgid==this_imgid,tripid] # find tripID for imgid
+  this_trip_area <- dt_paths_vtrb[imgid==this_imgid,trip_area] # find tripID for imgid
   this_path <- dt_paths_vtrb[imgid==this_imgid, path] #find local path
   check_path <- file.exists(this_path)
     if(length(check_path) == 0){
@@ -55,7 +57,7 @@ for (this_imgid in unique_imgids) {
       raster_100<- this_rast == unique_values[percentile=="100th", values]
       
       # create file names, save rasters
-      path_base <- paste0(dir_output, "/vtrbs_split")
+      path_base <- paste0(dir_output, "/vtrbs_split_by_percentile")
       new_path_25 <- paste0(path_base, "/25th_", this_tripid, "_", this_imgid, ".tif")
       writeRaster(raster_25, new_path_25, overwrite=TRUE)
       
@@ -70,6 +72,7 @@ for (this_imgid in unique_imgids) {
       
       # combine tripID, imgid, percentile, and path into a data table
       these_paths <- data.table(tripid= c(this_tripid, this_tripid, this_tripid, this_tripid),
+                                trip_area = c(this_trip_area, this_trip_area, this_trip_area, this_trip_area),
                              imgid=c(this_imgid, this_imgid, this_imgid, this_imgid),
                              percentile=c("25th", "50th", "75th", "100th"),
                              paths = c(new_path_25,new_path_50, new_path_75,new_path_100))
@@ -86,4 +89,4 @@ for (this_imgid in unique_imgids) {
     }
 }
 
-saveRDS(dt_paths_vtrb_split, paste0(dir_output, "/dt_paths_vtrb_split.rds"))
+saveRDS(dt_paths_vtrb_split, paste0(dir_output, "/dt_paths_vtrb_split_by_percentile.rds"))

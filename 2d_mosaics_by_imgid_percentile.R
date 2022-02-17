@@ -38,7 +38,7 @@ dir_data <- paste0(path_base, "Data/", repository)
 
 ##############################
 # Pull in data
-dt_paths_vtrb_split<- readRDS(paste0(dir_output, "/dt_paths_vtrb_split.rds"))
+dt_paths_vtrb_split<- readRDS(paste0(dir_output, "/dt_paths_vtrb_split_by_percentile.rds"))
 
 ##############################
 # Raster mosaics by percentiles
@@ -66,7 +66,7 @@ for (this_trip in unique_trips) {
   cumulative_75 <- mosaic(mosaic_75, cumulative_50, fun = "max")
   cumulative_100 <- mosaic(mosaic_100, cumulative_75, fun = "max")
   # create file names and write cumulative rasters
-  path_base <- paste0(dir_output, "/vtrbs_split_cumulative_by_imgid")
+  path_base <- paste0(dir_output, "/vtrbs_cumulative_imgid")
   
   path_25 <- paste0(path_base, "/25thPercentile_", this_trip,".tif")
   writeRaster(cumulative_25, path_25, overwrite=TRUE)

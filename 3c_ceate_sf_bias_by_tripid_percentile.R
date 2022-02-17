@@ -25,9 +25,9 @@ dir_data <- paste0(path_base, "Data/", repository)
 
 ##############################
 # Pull in data
-sf_vtrb_split_mosaic <- readRDS(paste0(dir_output, "/sf_vtrb_split_mosaic.rds"))
+sf_vtrb_cumulative_tripid <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_tripid.rds"))
 
-sf_hulls_attributes <- readRDS(file = paste0(dir_output, "/sf_hulls_attributes.rds"))
+sf_hulls_attributes_tripid <- readRDS(file = paste0(dir_output, "/sf_hulls_attributes_tripid.rds"))
 
 ##############################
 # create empty data.table, will be coerced into SF when sf rows are added below
@@ -38,24 +38,24 @@ class(tmp)[1] <- "sfc_GEOMETRY" # for geometry collection
 sf_bias <- st_sf(tripid_chr=character(0), area = numeric(0), type=character(0),
                  percentile=character(0), tripid=character(0), geometry=tmp)
 
-this_crs <- st_crs(sf_vtrb_split_mosaic) #extract CRS from exiting SF
+this_crs <- st_crs(sf_vtrb_cumulative_tripid) #extract CRS from exiting SF
 
 st_crs(sf_bias) <- this_crs #set CRS to match existing SF
 
-#unique_trips <- unique(sf_hulls_attributes$tripid_chr) # not all ids in SFCH are in VTRB set
-unique_trips <- unique(sf_vtrb_split_mosaic$tripid)
+#unique_trips <- unique(sf_hulls_attributes_tripid$tripid_chr) # not all ids in SFCH are in VTRB set
+unique_trips <- unique(sf_vtrb_cumulative_tripid$tripid)
 
 #this_trip <- unique_trips[[1]]
 for (this_trip in unique_trips) {
   # filter rows in CH that match trip_id
   # select id only (with geometry)
-  this_sfch <- sf_hulls_attributes %>%
+  this_sfch <- sf_hulls_attributes_tripid %>%
     filter(tripid_chr == this_trip) %>%
     select(tripid_chr)
   
   # filter rows in VTRB that match trip_id
   # select percentile only (with geometry)
-  this_vtrb <- sf_vtrb_split_mosaic %>%
+  this_vtrb <- sf_vtrb_cumulative_tripid %>%
     filter(tripid == this_trip) %>%
     select(tripid, percentile)
   
@@ -107,9 +107,7 @@ for (this_trip in unique_trips) {
   }
 
 saveRDS(object = sf_bias,
-        file= paste0(dir_output, "/sf_bias.rds"))
+        file= paste0(dir_output, "/sf_bias_tripid.rds"))
 
 #only one warning printed
-#"no false negative for this trip:33033916051107"
-
-# includes 221 unique trips = wittout fixing code
+#[1] "no false negative for this trip:33033916051107"

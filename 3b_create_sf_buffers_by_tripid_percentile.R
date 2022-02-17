@@ -31,24 +31,24 @@ dir_output <- paste0(path_base, "Output/", repository)
 dir_data <- paste0(path_base, "Data/", repository)
 ##############################
 # Pull in data
-dt_paths_vtrb_split_mosaic <- 
-  readRDS(paste0(dir_output, "/dt_paths_vtrb_split_mosaic.rds"))
+dt_paths_vtrb_cumulative_tripid <- 
+  readRDS(paste0(dir_output, "/dt_paths_vtrb_cumulative_tripid.rds"))
 
 ##############################
 #Build SF for VTR Buffers
-paths <- dt_paths_vtrb_split_mosaic$paths
+paths <- dt_paths_vtrb_cumulative_tripid$paths
 list_rasters <- lapply(X = paths, FUN = rast)
 list_polygons <- lapply(X = list_rasters, FUN = rast_to_polygon)
 list_sfgs <- unlist(list_polygons, recursive = FALSE)
 
-sfc_vtrb_split_mosaic <- st_sfc(list_sfgs, crs = st_crs(list_polygons[[1]]))
+sfc_vtrb_cumulative_tripid <- st_sfc(list_sfgs, crs = st_crs(list_polygons[[1]]))
 
-sf_vtrb_split_mosaic <- st_sf(geometry = sfc_vtrb_split_mosaic)
+sf_vtrb_cumulative_tripid <- st_sf(geometry = sfc_vtrb_cumulative_tripid)
 
-sf_vtrb_split_mosaic <- cbind(geometry = sf_vtrb_split_mosaic,
-    tripid = dt_paths_vtrb_split_mosaic$tripid,
-    percentile = dt_paths_vtrb_split_mosaic$percentile)
+sf_vtrb_cumulative_tripid <- cbind(geometry = sf_vtrb_cumulative_tripid,
+    tripid = dt_paths_vtrb_cumulative_tripid$tripid,
+    percentile = dt_paths_vtrb_cumulative_tripid$percentile)
 
-saveRDS(object = sf_vtrb_split_mosaic,
-        file= paste0(dir_output, "/sf_vtrb_split_mosaic.rds"))
+saveRDS(object = sf_vtrb_cumulative_tripid,
+        file= paste0(dir_output, "/sf_vtrb_cumulative_tripid.rds"))
 

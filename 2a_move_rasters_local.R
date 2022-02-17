@@ -31,7 +31,7 @@ path_fst <- "Y:\\socialsci\\Geret_Rasters\\Data\\offshore_wind_package_data\\ras
 dt_paths <-setDT(read_fst(file.path(path_fst, 'raster_file_list.fst')))
 ##############################
 # Pull in data
-dt_imgids_tripids <- setDT(readRDS(file=paste0(dir_output, "/dt_imgids_tripids.rds")))
+dt_imgids_matched <- setDT(readRDS(file=paste0(dir_output, "/dt_imgids_matched.rds")))
 
 ##############################
 # Prep data
@@ -41,8 +41,15 @@ dt_paths[, IDNUM_chr := as.character(IDNUM)][
 
 dt_paths_16chr <-dt_paths[nchar_IDNUM == 16]
 
+#min(dt_paths$nchar_IDNUM)
+#max(dt_paths$nchar_IDNUM)
+#dt_paths[, .N, by = "nchar_IDNUM"]
+#nchar(dt_imgids_matched$imgid_chr[[1]])
+
+
+
 # filter filePathDictionary16 to include match IMGID to IDNUM
-dt_paths_matched <- dt_paths_16chr[IDNUM_chr %in% dt_imgids_tripids$imgid_chr]
+dt_paths_matched <- dt_paths_16chr[IDNUM_chr %in% dt_imgids_matched$imgid_chr]
 
 # Modefy file path to match path on this computer (Versus someone from social sci)
 dt_paths_matched[, modefied_path := substr(dt_paths_matched$FILEPATH, 11,
@@ -54,12 +61,13 @@ saveRDS(dt_paths_matched, paste0(dir_output, "/dt_paths_matched.rds"))
 
 ##############################
 # Pull all rasters
-unique_imgids <- unique(dt_imgids_tripids$imgid_chr)
+unique_imgids <- unique(dt_imgids_matched$imgid_chr)
 #dtAllIDS <- data.table()
 dt_paths_vtrb <- data.table()
 
 for (this_imgid in unique_imgids) {
-  this_tripid <- dt_imgids_tripids[imgid_chr==this_imgid, tripid_chr] #find tripID by IMGID
+  this_tripid <- dt_imgids_matched[imgid_chr==this_imgid, tripid_chr] #find tripID by IMGID
+  this_trip_area <- dt_imgids_matched[imgid_chr==this_imgid, trip_area] #find tripID by IMGID
   this_path <- dt_paths_matched[IDNUM==this_imgid, final_path] #find path by IMGID
   count_paths <- length(this_path) # see if there are zero or multiple paths for one imgid
   check_path <- file.exists(this_path) # check if path exists - some are missing
@@ -81,6 +89,7 @@ for (this_imgid in unique_imgids) {
     writeRaster(this_raster, new_path, overwrite=TRUE) #save raster locally
     #concatenate data for this IMGID and add to dt to save later
     these_ids <- data.table(tripid=this_tripid,
+                            trip_area = this_trip_area,
                            imgid=this_imgid,
                            path = new_path)
     dt_paths_vtrb <- rbindlist(list(dt_paths_vtrb, these_ids)) #add data to summary table
@@ -96,9 +105,8 @@ saveRDS(dt_paths_vtrb, paste0(dir_output, "/dt_paths_vtrb.rds"))
 
 # Warning messages:
 # 1: No file path found, for IMGID:  3303391612311601 
-# 2: No file path found, for IMGID:  3305341707220302 
-# 3: No file path found, for IMGID:  3305341712282101 
-# 4: No file path found, for IMGID:  3305491812301501 
-# 5: No file path found, for IMGID:  3305491812301503 
-# 6: No file path found, for IMGID:  3305491812301502 
-# 7: No file path found, for IMGID:  4105141612301801 
+# 2: No file path found, for IMGID:  3305341712282101 
+# 3: No file path found, for IMGID:  3305491812301501 
+# 4: No file path found, for IMGID:  3305491812301503 
+# 5: No file path found, for IMGID:  3305491812301502 
+# 6: No file path found, for IMGID:  4105141612301801 

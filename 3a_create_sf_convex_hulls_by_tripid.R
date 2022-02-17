@@ -32,7 +32,7 @@ sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
 # create Convex Hull from study fleet data by trip
 #group and summarise by species, and draw hulls
 hulls <- sf_gte_nad83 %>%
-  group_by(tripid_chr, VESSEL_NAME) %>%
+  group_by(tripid_chr) %>%
   summarise(geometry = st_combine(geometry)) %>%
   st_convex_hull()
 
@@ -43,8 +43,7 @@ dt_attributes <- st_drop_geometry(sf_gte_nad83)
 # Build subtable for for features that are uniform for entire trip
 # removed gear_code_vtr and gear_code_obs because one trip has multiple
 dt_attributes_tripid <- dt_attributes[, .(permit, sail_date, TOT_CATCH, TOT_LOLIGO_CATCH,
-                                     source, YEAR, MONTH, YDAY,DATE, PROP_LOLIGO,
-                                     VESSEL_NAME, prop_loligo, tripid_chr)]
+                                     source, year, prop_loligo, tripid_chr)]
 
 # Used these two lines to find features with multiple values by trip
 # removed these two features, and then re-ran unique - now features are unique by trip
@@ -68,12 +67,12 @@ new_names <- c("Summed_effort_dur", "Summed_LOLIGO_KEPTWT",
 setnames(dt_attributes_tripid_sum, these_attributes, new_names)
 
 # Build subtable for for features that should be averaged for entire trip
-these_attributes <- c("BOT_DEPTH_M", "GEAR_DEPTH", "prop_loligo")
+these_attributes <- c("depth", "TEMP", "BOT_DEPTH_M", "GEAR_DEPTH", "prop_loligo")
 
 dt_attributes_tripid_avg <- dt_attributes[, lapply(.SD, mean), by = .(tripid_chr),
                                      .SDcols = these_attributes]
 
-new_names <- c("Mean_BOT_DEPTH_M", "Mean_GEAR_DEPTH", "Mean_prop_loligo")
+new_names <- c("Mean_depth", "Mean_TEMP", "Mean_BOT_DEPTH_M", "Mean_GEAR_DEPTH", "Mean_prop_loligo")
 
 setnames(dt_attributes_tripid_avg, these_attributes, new_names)
 
@@ -87,8 +86,8 @@ dt_attributes_joined <-dt_attributes_tripid_constant[dt_attributes_joined,
 
 #join all features to sf - summarized by tripid
 dt_hulls_attributes <- inner_join(dt_attributes_joined,hulls, by = "tripid_chr")
-sf_hulls_attributes <- st_set_geometry(dt_hulls_attributes,
+sf_hulls_attributes_tripid <- st_set_geometry(dt_hulls_attributes,
                                       dt_hulls_attributes$geometry)
 
-saveRDS(object = sf_hulls_attributes,
-        file = paste0(dir_output, "/sf_hulls_attributes.rds"))
+saveRDS(object = sf_hulls_attributes_tripid,
+        file = paste0(dir_output, "/sf_hulls_attributes_tripid.rds"))

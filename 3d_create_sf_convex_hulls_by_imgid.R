@@ -4,7 +4,7 @@ library(sf)
 library(dplyr)
 
 # This script builds a SF from the Study Fleet GTE cleaned data
-# Creates one convex hulls per trip
+# Creates one convex hulls per imgid
 # Summarizes features by trip as means, sums, or
 # single values that represent entire trip
 
@@ -32,7 +32,7 @@ sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
 # create Convex Hull from study fleet data by imgid
 #group and summarise by species, and draw hulls
 hulls <- sf_gte_nad83 %>%
-  group_by(imgid_chr, VESSEL_NAME) %>%
+  group_by(imgid_chr) %>%
   summarise(geometry = st_combine(geometry)) %>%
   st_convex_hull()
 
@@ -46,11 +46,14 @@ dt_attributes_imgid <- dt_attributes[, .(permit, sail_date, TOT_CATCH, TOT_LOLIG
                                      source, YEAR, MONTH, YDAY,DATE, PROP_LOLIGO,
                                      VESSEL_NAME, prop_loligo, tripid_chr, imgid_chr)]
 
+dt_attributes_imgid <- dt_attributes[, .(permit, area, sail_date, TOT_CATCH, TOT_LOLIGO_CATCH,
+                                          source, year, prop_loligo, tripid_chr, imgid_chr)]
+
 # Used these two lines to find features with multiple values by trip
 # all features were unique for imgidid
 # first count number of unique values by imgiid
 #dt_attributes_imgid_count <- dt_attributes_imgid[, lapply(.SD, uniqueN), 
-#                                                  by = imgid_chr]
+                                                  by = imgid_chr]
 # then take the maximum value, if 1, then constant across imgid
 #dt_attributes_imgid_max <- dt_attributes_imgid_count[, lapply(.SD, max)]
 
