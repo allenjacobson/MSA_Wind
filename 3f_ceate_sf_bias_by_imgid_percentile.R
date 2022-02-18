@@ -29,6 +29,16 @@ sf_vtrb_cumulative_imgid <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgi
 
 sf_hulls_attributes_imgid <- readRDS(file = paste0(dir_output, "/sf_hulls_attributes_imgid.rds"))
 
+
+##############################
+# Prep data
+
+sf_vtrb_cumulative_imgid <- sf_vtrb_cumulative_imgid %>%
+  filter(imgid %in% sf_hulls_attributes_imgid$imgid_chr)
+
+sf_hulls_attributes_imgid <- sf_hulls_attributes_imgid %>%
+  filter(imgid_chr %in% sf_vtrb_cumulative_imgid$imgid)
+
 ##############################
 # create empty data.table, will be coerced into SF when sf rows are added below
 # apply crs from sfBuffers
@@ -41,10 +51,9 @@ sf_bias <- st_sf(imgid_chr=character(0), area = numeric(0), type=character(0),
 this_crs <- st_crs(sf_vtrb_cumulative_imgid) #extract CRS from exiting SF
 
 st_crs(sf_bias) <- this_crs #set CRS to match existing SF
-
 #unique_trips <- unique(sf_hulls_attributes_imgid$tripid_chr) # not all ids in SFCH are in VTRB set
-unique_trips <- unique(sf_vtrb_cumulative_imgid$imgid)
-this_trip <- unique_trips[[29]]
+unique_trips <- unique(sf_hulls_attributes_imgid$imgid)
+this_trip <- unique_trips[[163]]
 
 for (this_trip in unique_trips) {
   # filter rows in CH that match trip_id
@@ -113,11 +122,11 @@ for (this_trip in unique_trips) {
 saveRDS(object = sf_bias,
         file= paste0(dir_output, "/sf_bias_imgid.rds"))
 
-#six warnings printed
+# warnings printed
 # [1] "no intersection for this trip:1507731707022302"
-# [1] "no intersection for this trip:3303391607270102"
-# [1] "no intersection for this trip:3305341809210201"
-# [1] "no intersection for this trip:4103421602171802"
-# [1] "no intersection for this trip:4103421712161801"
-# [1] "no intersection for this trip:4105141602202201"
-
+# [1] "no false negative for this trip:3206451705060001"
+# [1] "no false negative for this trip:3206991605020102"
+# [1] "no false negative for this trip:3305211601071402"
+# [1] "no false negative for this trip:3307821601301601"
+# [1] "no false negative for this trip:4105141609090102"
+# [1] "no false negative for this trip:4105141701111902"

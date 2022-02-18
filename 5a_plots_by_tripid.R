@@ -32,29 +32,26 @@ dir_data <- paste0(path_base, "Data/", repository)
 ##############################
 # Pull in data
 sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
-
-sf_hulls_attributes <- readRDS(paste0(dir_output, "/sf_hulls_attributes.rds"))
-
-sf_vtrb_split_mosaic <- readRDS(paste0(dir_output, "/sf_vtrb_split_mosaic.rds"))
-
-sf_bias <- readRDS(paste0(dir_output, "/sf_bias.rds"))
+sf_hull <- readRDS(paste0(dir_output, "/sf_hulls_attributes_tripid.rds"))
+sf_vtrb <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_tripid.rds"))
+sf_bias <- readRDS(paste0(dir_output, "/sf_bias_tripid.rds"))
 
 ##############################
 #data prep
 
 # estimate area of of sfch
-sf_hulls_attributes <- sf_hulls_attributes %>%
+sf_hull <- sf_hull %>%
   mutate(area = st_area(.) %>% as.numeric())
 
 # eatimate area of vtrb
-sf_vtrb_split_mosaic <- sf_vtrb_split_mosaic %>%
+sf_vtrb <- sf_vtrb %>%
   mutate(area = st_area(.) %>% as.numeric())
 
 # create new dt with both
-dt_vtrb <- as.data.table(sf_vtrb_split_mosaic)
+dt_vtrb <- as.data.table(sf_vtrb)
 setnames(dt_vtrb, "area", "vtrb_area")
 
-dt_sfch <- as.data.table(sf_hulls_attributes)
+dt_sfch <- as.data.table(sf_hull)
 dt_sfch <- dt_sfch[, .(tripid_chr, area)]
 setnames(dt_sfch, "area", "sfch_area")
 

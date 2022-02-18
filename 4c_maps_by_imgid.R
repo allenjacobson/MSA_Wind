@@ -37,6 +37,15 @@ sf_bias <- readRDS(paste0(dir_output, "/sf_bias_imgid.rds"))
 sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
 
 ##############################
+#data prep
+sf_vtrb_cumulative_imgid <- sf_vtrb_cumulative_imgid %>%
+  filter(imgid %in% sf_hulls_attributes_imgid$imgid_chr)
+
+sf_hulls_attributes_imgid <- sf_hulls_attributes_imgid %>%
+  filter(imgid_chr %in% sf_vtrb_cumulative_imgid$imgid)
+
+
+##############################
 #Plot by trip
 
 #sf_bias is missing trips - only contains 117 - instead of 220

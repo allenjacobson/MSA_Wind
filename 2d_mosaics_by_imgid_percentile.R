@@ -42,7 +42,7 @@ dt_paths_vtrb_split<- readRDS(paste0(dir_output, "/dt_paths_vtrb_split_by_percen
 
 ##############################
 # Raster mosaics by percentiles
-unique_trips <- unique(dt_paths_vtrb_split$imgid)
+unique_trips <- unique(dt_paths_vtrb_split$trip_area)
 #this_trip <- unique_trips[[2]]
 
 # create empty data.table to add file paths
@@ -51,10 +51,10 @@ dt_paths_vtrb_cumulative_imgid <- data.table()
 
 
 for (this_trip in unique_trips) {
-  dt_25 <- dt_paths_vtrb_split[imgid==this_trip & percentile=="25th"]
-  dt_50 <- dt_paths_vtrb_split[imgid==this_trip & percentile=="50th"]
-  dt_75 <- dt_paths_vtrb_split[imgid==this_trip & percentile=="75th"]
-  dt_100 <- dt_paths_vtrb_split[imgid==this_trip & percentile=="100th"]
+  dt_25 <- dt_paths_vtrb_split[trip_area==this_trip & percentile=="25th"]
+  dt_50 <- dt_paths_vtrb_split[trip_area==this_trip & percentile=="50th"]
+  dt_75 <- dt_paths_vtrb_split[trip_area==this_trip & percentile=="75th"]
+  dt_100 <- dt_paths_vtrb_split[trip_area==this_trip & percentile=="100th"]
   # create mosaic for each percentile - these are non-cumulative
   mosaic_25<- paths_to_mosaic(dt_25$paths, this_trip)
   mosaic_50<- paths_to_mosaic(dt_50$paths, this_trip)
@@ -80,10 +80,13 @@ for (this_trip in unique_trips) {
   path_100 <- paste0(path_base, "/100thPercentile_", this_trip,".tif")
   writeRaster(cumulative_100, path_100, overwrite=TRUE)
   
-  this_trip_id <- unique(dt_paths_vtrb_split[imgid == this_trip,tripid])
+  this_trip_id <- unique(dt_paths_vtrb_split[trip_area == this_trip,tripid])
+  this_imgid <- unique(dt_paths_vtrb_split[trip_area == this_trip,imgid])
+  
   
   these_paths <- data.table(tripid =c(this_trip_id, this_trip_id, this_trip_id, this_trip_id),
-                            imgid= c(this_trip, this_trip, this_trip, this_trip),
+                            trip_area= c(this_trip, this_trip, this_trip, this_trip),
+                            imgid = c(this_imgid, this_imgid, this_imgid, this_imgid),
                             percentile=c("25th", "50th", "75th", "100th"),
                             paths = c(path_25,path_50, path_75,path_100))
   # Add file paths to data.table

@@ -31,6 +31,11 @@ sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
 
 ##############################
 #data prep
+sf_vtrb <- sf_vtrb %>%
+  filter(imgid %in% sf_hulls_attributes$imgid_chr)
+
+sf_hulls_attributes <- sf_hulls_attributes %>%
+  filter(imgid_chr %in% sf_vtrb$imgid)
 
 # estimate area of of sfch
 sf_hulls_attributes <- sf_hulls_attributes %>%

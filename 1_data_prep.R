@@ -81,6 +81,10 @@ setkey(dt_gte_matched, trip_area)
 
 dt_gte_final <- dt_gte_matched[dt_for_join, nomatch = 0, allow.cartesian=TRUE]
 
+# Possibly remove all imgids and trip_areas when multiple trip_area per imgid
+dt_filter <- unique(dt_gte_final[, c("trip_area", "imgid_chr")])
+dt_count <- dt_filter[, .N, by = "trip_area"][N>1]
+
 saveRDS(dt_gte_final, paste0(dir_output,"/dt_gte.rds"))
 saveRDS(dt_imgids_matched, paste0(dir_output, "/dt_imgids_matched.rds"))
 
