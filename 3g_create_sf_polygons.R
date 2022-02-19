@@ -10,10 +10,12 @@ library(dplyr)
 
 ##############################
 # Functions
-group <- "haul_id"
-select_unique_by_group <- function(dt_attributes, group){
+haul_id <- "testTestTest"
+group_as_string <- "haul_id"
+
+select_unique_by_group <- function(dt_attributes, group_as_string){
   dt_attributes_count <- dt_attributes[, lapply(.SD, uniqueN),
-                                             by = group]
+                                             by = group_as_string]
   dt_attributes_max <- dt_attributes_count[, lapply(.SD, max)]
   
   attribute_names <- names(dt_attributes_max)
@@ -21,7 +23,7 @@ select_unique_by_group <- function(dt_attributes, group){
   
   dt_attributes_select <- as.data.table(cbind(attribute_names, attribute_count))
   dt_attributes_select<- dt_attributes_select[attribute_count==1, attribute_names]
-  dt_attributes_select <- append(dt_attributes_select, "haul_id")
+  dt_attributes_select <- append(dt_attributes_select, group_as_string)
   #multiple imgid_chr per haul_id - so need to remove
   #dt_attributes_select <- append(dt_attributes_select, "imgid_chr")
   
@@ -30,6 +32,7 @@ select_unique_by_group <- function(dt_attributes, group){
   dt_attributes_group_constant<- unique(dt_attributes_group)
   return(dt_attributes_group_constant)
 }
+
 
 ##############################
 # Set directories
@@ -54,9 +57,7 @@ sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
 polygons <- sf_gte_nad83 %>%
   group_by(haul_id) %>%
   filter(n() > 3) %>%
-  #summarise() %>%
   summarise(geometry = st_combine(geometry)) %>%
-  #st_union() %>%
   st_cast("POLYGON")
 
 ##############################
@@ -64,17 +65,25 @@ polygons <- sf_gte_nad83 %>%
 dt_attributes <- st_drop_geometry(sf_gte_nad83)
 
 # Build subtable for for features that are uniform for entire trip
-dt_attributes_group_constant <- select_unique_by_group(dt_attributes, "haul_id")
-dt_attributes_group_constant <- dt_attributes_group_constant[haul_id %in% polygons$haul_id]
+dt_attributes_haulid <- select_unique_by_group(dt_attributes,
+                                               "haul_id")
+
+dt_attributes_haulid <- dt_attributes_haulid[haul_id %in% polygons$haul_id]
 
 #merge polygons with attributes
-dt_polygon_attributes <- inner_join(dt_attributes_group_constant,
+dt_polygon_haulid <- inner_join(dt_attributes_haulid,
                                   polygons,
                                   by = "haul_id")
+#coerce into sf
+sf_polygon_haulid <- st_set_geometry(dt_polygon_haulid,
+                                     dt_polygon_haulid$geometry)
 
-#coerce dt_hulls_attributes into sf
-sf_polygon_attributes <- st_set_geometry(dt_polygon_attributes,
-                                       dt_polygon_attributes$geometry)
+# assign attribute types - constant/sum/..
 
-saveRDS(object = sf_polygon_attributes,
-        file = paste0(dir_output, "/sf_polygon_attributes.rds"))
+# export by haul_id
+saveRDS(object = sf_polygon_haulid,
+        file = paste0(dir_output, "/sf_polygon_haulid.rds"))
+
+# merge by trip_area - make sure to include imgid - problem when not unique
+
+# merge by trip_id
