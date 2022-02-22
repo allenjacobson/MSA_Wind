@@ -90,11 +90,11 @@ saveRDS(dt_imgids_matched, paste0(dir_output, "/dt_imgids_matched.rds"))
 
 ##############################
 # Coerce into SF (simple features)
-crs_proj <- st_crs("+init=epsg:4326") # EPSG code for WGS84, which taks YX or long lat
+#crs_proj <- st_crs("+init=epsg:4326") # EPSG code for WGS84, which taks XY or long lat
 
 sf_gte_wgs84 <- st_as_sf(x = dt_gte_final,                         
                coords = c("LONGITUDE", "LATITUDE"),
-               crs = crs_proj)
+               crs = 4326)
 
 sf_gte_nad83 <- st_transform(sf_gte_wgs84, crs_nad83)
 
