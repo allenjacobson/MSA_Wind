@@ -63,27 +63,21 @@ dt_gte <- na.omit(dt_gte , c("LONGITUDE", "LATITUDE")) # rows with NAs in lon an
 dt_gte <- dt_gte[,tripid_chr :=as.character(trip_id)]
 
 # Match cleaned dataset with IMGID dataset
-# remove imgids that do not have tripid in gte dataset
-#test1 <- dt_imgids[tripid_chr %in% dt_gte$tripid_chr]
-#test2 <- dt_imgids[trip_area %in% dt_gte$trip_area]
-
+# remove rows that do not have trip_area in other dataset
 dt_imgids_matched <- dt_imgids[trip_area %in% dt_gte$trip_area]
-# remove tripids that do not imgid in imgid list - drops from 389 to 225
-#test4 <- dt_gte[tripid_chr %in% dt_imgids_matched$tripid_chr]
-#test5 <- dt_gte[trip_area %in% dt_imgids_matched$trip_area]
-
 dt_gte_matched <- dt_gte[trip_area %in% dt_imgids_matched$trip_area]
 
-#cross join cleaned imgids to dt_gte_matched
+# join cleaned imgids to dt_gte_matched
 dt_for_join <- dt_imgids_matched[, .(trip_area, imgid_chr)]
 setkey(dt_for_join, trip_area)
 setkey(dt_gte_matched, trip_area)
 
-dt_gte_final <- dt_gte_matched[dt_for_join, nomatch = 0, allow.cartesian=TRUE]
+dt_gte_joined <- dt_gte_matched[dt_for_join, nomatch = 0, allow.cartesian=TRUE]
 
-# Possibly remove all imgids and trip_areas when multiple trip_area per imgid
-dt_filter <- unique(dt_gte_final[, c("trip_area", "imgid_chr")])
-dt_count <- dt_filter[, .N, by = "trip_area"][N>1]
+# Filter by unique imgid-triparea combination
+dt_filter <- dt_gte_joined[ , .(count = length(unique(imgid_chr))), by = trip_area]
+dt_filter <- dt_filter[count == 1]
+dt_gte_final <- dt_gte_joined[trip_area %in% dt_filter$trip_area]
 
 saveRDS(dt_gte_final, paste0(dir_output,"/dt_gte.rds"))
 saveRDS(dt_imgids_matched, paste0(dir_output, "/dt_imgids_matched.rds"))
