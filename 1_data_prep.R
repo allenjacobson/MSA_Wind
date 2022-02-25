@@ -42,6 +42,13 @@ dt_imgids <- fread(paste0(dir_data, "/SF_MATCHED_TO_APSD_AREA.csv"))
 dt_imgids[,tripid_chr :=as.character(trip_id)][
   ,imgid_chr :=as.character(IMGID)]
 
+
+## tests
+# test <- dt[ , .(count = length(unique(haul_id))), by = trip_area]
+# max(test$count)
+# test2 <- dt_imgids[ , .(count = length(unique(imgid_chr))), by = trip_area]
+# max(test2$count)
+
 ##############################
 # Trim data to only include that meet pre-specified criteria
 # First, calculate loglio catch
@@ -75,10 +82,17 @@ setkey(dt_gte_matched, trip_area)
 dt_gte_joined <- dt_gte_matched[dt_for_join, nomatch = 0, allow.cartesian=TRUE]
 
 # Filter by unique imgid-triparea combination
-dt_filter <- dt_gte_joined[ , .(count = length(unique(imgid_chr))), by = trip_area]
-dt_filter <- dt_filter[count == 1]
-dt_gte_final <- dt_gte_joined[trip_area %in% dt_filter$trip_area]
 
+#dt_prefilter <- dt_gte_joined[ , .(count = length(unique(imgid_chr))), by = trip_area]
+#dt_filter <- dt_prefilter[count == 1]
+#length(dt_prefilter$trip_area)-length(dt_filter$trip_area)
+# filter removes 17 trips
+#dt_gte_final <- dt_gte_joined[trip_area %in% dt_filter$trip_area]
+
+#length(dt_gte_joined$trip_area)-length(dt_gte_final$trip_area)
+# this filter removes 40985 gte rows
+
+dt_gte_final <- dt_gte_joined
 saveRDS(dt_gte_final, paste0(dir_output,"/dt_gte.rds"))
 saveRDS(dt_imgids_matched, paste0(dir_output, "/dt_imgids_matched.rds"))
 
@@ -91,8 +105,6 @@ sf_gte_wgs84 <- st_as_sf(x = dt_gte_final,
                crs = 4326)
 
 sf_gte_nad83 <- st_transform(sf_gte_wgs84, crs_nad83)
-
-
 
 saveRDS(sf_gte_nad83, paste0(dir_output,"/sf_gte_nad83.rds"))
 
