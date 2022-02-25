@@ -34,6 +34,9 @@ dir_data <- paste0(path_base, "Data/", repository)
 dt_paths_vtrb_cumulative_tripid <- 
   readRDS(paste0(dir_output, "/dt_paths_vtrb_cumulative_tripid.rds"))
 
+dt_paths_vtrb_cumulative_imgid <-
+  readRDS(paste0(dir_output, "/dt_paths_vtrb_cumulative_imgid.rds"))
+
 ##############################
 #Build SF for VTR Buffers
 paths <- dt_paths_vtrb_cumulative_tripid$paths
@@ -52,3 +55,23 @@ sf_vtrb_cumulative_tripid <- cbind(geometry = sf_vtrb_cumulative_tripid,
 saveRDS(object = sf_vtrb_cumulative_tripid,
         file= paste0(dir_output, "/sf_vtrb_cumulative_tripid.rds"))
 
+
+##############################
+#Build SF for VTR Buffers by imgid
+paths <- dt_paths_vtrb_cumulative_imgid$paths
+list_rasters <- lapply(X = paths, FUN = rast)
+list_polygons <- lapply(X = list_rasters, FUN = rast_to_polygon)
+#unlist to create list of objects of class sfg
+list_sfgs <- unlist(list_polygons, recursive = FALSE) 
+
+# coerce to sfc, but sfg lost crs, so add crs back in from list_polygons
+sfc_vtrb_cumulative_imgid <- st_sfc(list_sfgs, crs = st_crs(list_polygons[[1]])) 
+# coerce into sf
+sf_vtrb_cumulative_imgid <- st_sf(geometry = sfc_vtrb_cumulative_imgid)
+# add features to sf
+sf_vtrb_cumulative_imgid <- cbind(geometry = sf_vtrb_cumulative_imgid,
+                                  percentile = dt_paths_vtrb_cumulative_imgid$percentile,
+                                  imgid = dt_paths_vtrb_cumulative_imgid$imgid)
+#save sf
+saveRDS(object = sf_vtrb_cumulative_imgid,
+        f
