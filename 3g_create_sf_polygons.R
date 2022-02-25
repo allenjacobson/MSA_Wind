@@ -10,28 +10,41 @@ library(dplyr)
 
 ##############################
 # Functions
-#haul_id <- "testTestTest"
 #group_as_string <- "haul_id"
-
-# select_unique_by_group <- function(dt_attributes, group_as_string){
-#   dt_attributes_count <- dt_attributes[, lapply(.SD, uniqueN),
-#                                              by = group_as_string]
-#   dt_attributes_max <- dt_attributes_count[, lapply(.SD, max)]
-#   
-#   attribute_names <- names(dt_attributes_max)
-#   attribute_count <- unlist(dt_attributes_max[1])
-#   
-#   dt_attributes_select <- as.data.table(cbind(attribute_names, attribute_count))
-#   dt_attributes_select<- dt_attributes_select[attribute_count==1, attribute_names]
-#   dt_attributes_select <- append(dt_attributes_select, group_as_string)
-#   #multiple imgid_chr per haul_id - so need to remove
-#   #dt_attributes_select <- append(dt_attributes_select, "imgid_chr")
-#   
-#   dt_attributes_group <- dt_attributes[, mget(dt_attributes_select)]
-#   
-#   dt_attributes_group_constant<- unique(dt_attributes_group)
-#   return(dt_attributes_group_constant)
-# }
+sf_by_group <- function(sf_attributes, group_as_string, polygons){
+  dt_attributes <- st_drop_geometry(sf_attributes)
+  dt_attributes_count <- dt_attributes[, lapply(.SD, uniqueN), by = group_as_string]
+  dt_attributes_max <- dt_attributes_count[, lapply(.SD, max)]
+  attribute_names <- names(dt_attributes_max)
+  attribute_count <- unlist(dt_attributes_max[1])
+  
+  dt_attributes_select <- as.data.table(cbind(attribute_names, attribute_count))
+  dt_attributes_select<- dt_attributes_select[attribute_count==1, attribute_names]
+  dt_attributes_select <- append(dt_attributes_select, group_as_string)
+  
+  dt_attributes_group <- dt_attributes[, mget(dt_attributes_select)]
+  
+  dt_attributes_constant<- unique(dt_attributes_group)
+  
+  group <- which( colnames(dt_attributes_constant)==group_as_string )
+  
+  dt_attributes_group_filtered <- dt_attributes_constant[dt_attributes_constant[[group]] %in%
+                                                        get(group_as_string, polygons)]
+  
+  names_all <- names(dt_attributes)
+  names_constant <- names(dt_attributes_constant)
+  names_missing <- subset(names_all , !(names_all %in% names_constant))
+  
+  #merge polygons with attributes
+  dt_polygon_group <- inner_join(dt_attributes_constant,
+                                 polygons,
+                                 by = group_as_string)
+  #coerce into sf
+  sf_polygon_group <- st_set_geometry(dt_polygon_group,
+                                      dt_polygon_group$geometry)
+  
+  return(sf_polygon_group)
+}
 
 ##############################
 # Set directories
@@ -83,6 +96,9 @@ ids_final <- rbind(simple_ids, selected_ids)
 sf <- sf_filtered %>%
   filter(imgid_chr %in% ids_final$imgid_chr)
 
+remove(list=setdiff(ls(), c("sf", "sf_by_group", "repository", "path_base",
+                            "dir_output", "dir_data")))
+
 ##############################
 # create polygons from study fleet data by haul_id
 # then merge by imgid, trip_area, tripid
@@ -93,73 +109,53 @@ polygons <- sf %>%
   st_cast("POLYGON")
 
 ##############################
-# build feature table at group level
-dt_attributes <- st_drop_geometry(sf)
+# build feature table by haul_id
+sf_polygon_haulid <- sf_by_group(sf_attributes = sf,
+            group_as_string = "haul_id",
+            polygons = polygons)
 
-# Build subtable for for features that are uniform for entire trip
-dt_attributes_haulid <- select_unique_by_group(dt_attributes,
-                                               "haul_id")
-
-dt_attributes_haulid <- dt_attributes_haulid[haul_id %in% polygons$haul_id]
-
-names_all <- names(dt_attributes)
-names_haulid <- names(dt_attributes_haulid)
-names_missing <- subset(names_all , !(names_all %in% names_haulid))
-
-#merge polygons with attributes
-dt_polygon_haulid <- inner_join(dt_attributes_haulid,
-                                  polygons,
-                                  by = "haul_id")
-#coerce into sf
-sf_polygon_haulid <- st_set_geometry(dt_polygon_haulid,
-                                     dt_polygon_haulid$geometry)
-
-# make sure s2 is turned on
-sf_use_s2(TRUE)
-
-#add buffer
-# need to look up units - think this will confirm if in meters
+# add buffer
+# confirm units
 st_crs(sf_polygon_haulid)$units
 
 sf_buffered_polygon_haulid<- st_buffer(sf_polygon_haulid,
-          dist = 50, # assuming in meters 50m ~ 150ft
-          nQuadSegs =30, #default
-          endCapStyle = "ROUND", #default
-          joinStyle = "ROUND", #default
-          mitreLimit = 1, #default
-          singleSide = FALSE) #default
+                                       dist = 50, # assuming in meters 50m ~ 150ft
+                                       nQuadSegs =30, #default
+                                       endCapStyle = "ROUND", #default
+                                       joinStyle = "ROUND", #default
+                                       mitreLimit = 1, #default
+                                       singleSide = FALSE) #default
 
 # export by haul_id
 saveRDS(object = sf_buffered_polygon_haulid,
         file = paste0(dir_output, "/sf_buffered_polygon_haulid.rds"))
 
-# merge by trip_area - make sure to include imgid - problem when not unique
+##############################
+# build feature table by subtrip
 sf_buffered_polygon_subtrip <-
   sf_buffered_polygon_haulid %>%
   group_by(trip_area) %>%
   summarise(geometry = st_combine(geometry))
 
-dt_attributes <- st_drop_geometry(sf_buffered_polygon_haulid)
+sf_buffered_polygon_subtrip <- sf_by_group(sf_attributes = sf_buffered_polygon_haulid,
+                                           group_as_string = "trip_area",
+                                           polygons = sf_buffered_polygon_subtrip)
 
-# Build subtable for for features that are uniform for entire trip
-dt_attributes_subtrip <- select_unique_by_group(dt_attributes,
-                                               "trip_area")
+# export by haul_id
+saveRDS(object = sf_buffered_polygon_subtrip,
+        file = paste0(dir_output, "/sf_buffered_polygon_subtrip.rds"))
 
-dt_attributes_subtrip <- dt_attributes_subtrip[trip_area %in%
-                                                 sf_buffered_polygon_subtrip$trip_area]
+##############################
+# build feature table by trip
+sf_buffered_polygon_trip <-
+  sf_buffered_polygon_subtrip %>%
+  group_by(tripid_chr) %>%
+  summarise(geometry = st_combine(geometry))
 
-#merge polygons with attributes
-dt_polygon_subtrip <- inner_join(dt_attributes_subtrip,
-                                 sf_buffered_polygon_subtrip,
-                                 by = "trip_area")
-#coerce into sf
-sf_polygon_subtrip <- st_set_geometry(dt_polygon_subtrip,
-                                      dt_polygon_subtrip$geometry)
+sf_buffered_polygon_trip <- sf_by_group(sf_attributes = sf_buffered_polygon_subtrip,
+                                        group_as_string = "tripid_chr",
+                                        polygons = sf_buffered_polygon_trip)
 
-names_subtrip <- names(dt_attributes_subtrip)
-names_haulid <- names(dt_attributes_haulid)
-names_missing <- subset(names_haulid , !(names_haulid %in% names_subtrip))
-
-# merge by trip_id
-
-
+# export by haul_id
+saveRDS(object = sf_buffered_polygon_trip,
+        file = paste0(dir_output, "/sf_buffered_polygon_trip.rds"))
