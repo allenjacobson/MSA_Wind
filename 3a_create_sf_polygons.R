@@ -1,4 +1,4 @@
-# Load packages
+                                                                                                                                # Load packages
 library(data.table)
 library(sf)
 library(dplyr)
@@ -95,6 +95,9 @@ ids_final <- rbind(simple_ids, selected_ids)
 
 sf <- sf_filtered %>%
   filter(imgid_chr %in% ids_final$imgid_chr)
+
+saveRDS(object = sf,
+        file = paste0(dir_output, "/sf_gte_nad83_singles.rds"))
 
 remove(list=setdiff(ls(), c("sf", "sf_by_group", "repository", "path_base",
                             "dir_output", "dir_data")))

@@ -28,21 +28,27 @@ dir_data <- paste0(path_base, "Data/", repository)
 
 ##############################
 # Pull in data
-sf_vtrb_cumulative_imgid <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
+sf_gte <- readRDS(file = paste0(dir_output, "/sf_gte_nad83_singles.rds"))
+sf_polygon <- readRDS(file = paste0(dir_output, "/sf_buffered_polygon_subtrip.rds"))
+sf_vtrb <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
+sf_bias <- readRDS(file= paste0(dir_output, "/sf_bias_imgid.rds"))
 
-sf_hulls_attributes_imgid <- readRDS(file = paste0(dir_output, "/sf_hulls_attributes_imgid.rds"))
+sf_polygon <- st_make_valid(sf_polygon)
+sf_vtrb <- st_make_valid(sf_vtrb)
 
-sf_bias <- readRDS(paste0(dir_output, "/sf_bias_imgid.rds"))
-
-sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
+# old files
+#sf_vtrb_cumulative_imgid <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
+# sf_hulls_attributes_imgid <- readRDS(file = paste0(dir_output, "/sf_hulls_attributes_imgid.rds"))
+# sf_bias <- readRDS(paste0(dir_output, "/sf_bias_imgid.rds"))
+# sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
 
 ##############################
 #data prep
-sf_vtrb_cumulative_imgid <- sf_vtrb_cumulative_imgid %>%
-  filter(imgid %in% sf_hulls_attributes_imgid$imgid_chr)
+sf_vtrb <- sf_vtrb %>%
+  filter(imgid %in% sf_polygon$imgid_chr)
 
-sf_hulls_attributes_imgid <- sf_hulls_attributes_imgid %>%
-  filter(imgid_chr %in% sf_vtrb_cumulative_imgid$imgid)
+sf_polygon <- sf_polygon %>%
+  filter(imgid_chr %in% sf_vtrb$imgid)
 
 
 ##############################
@@ -50,7 +56,7 @@ sf_hulls_attributes_imgid <- sf_hulls_attributes_imgid %>%
 
 #sf_bias is missing trips - only contains 117 - instead of 220
 unique_trips <- unique(sf_bias$imgid)
-this_trip <- unique_trips[[4]]
+this_trip <- unique_trips[[5]]
 
 for (this_trip in unique_trips) {
   these_vtrb <- sf_bias %>%
@@ -59,10 +65,12 @@ for (this_trip in unique_trips) {
   this_sfch <- sf_bias %>%
     filter(imgid==this_trip, type == "sfch")
   
-  this_sfch  <-cbind(this_sfch, shape = "convex hull")
+  this_sfch  <-cbind(this_sfch, shape = "polygon")
   
-  these_points <- sf_gte_nad83 %>%
-    filter(imgid_chr==this_trip)
+  these_points <- sf_gte %>%
+    filter(imgid_chr==this_trip) %>%
+    select(area) %>%
+    mutate(area = as.factor(area))
   
   # Change ordering manually
   these_vtrb$percentile <- factor(these_vtrb$percentile,
@@ -71,15 +79,15 @@ for (this_trip in unique_trips) {
   this_plot<- ggplot()+
     geom_sf(data=these_vtrb, aes(fill = percentile), color = NA)+
     scale_fill_viridis_d(direction = -1)+
-    geom_sf(data=this_sfch, aes(color= shape), fill=NA, size = 4)+
-    scale_color_manual(values = alpha("red", .5))+
+    geom_sf(data=this_sfch, aes(color= shape), fill=NA, size = 2)+
+    scale_color_manual(values = alpha("red", .75))+
     geom_sf(data = these_points, aes(shape = area),
-            size = 1, alpha = .25, color = "white")+
+            size = 1, alpha = .15, color = "white")+
     xlab("Longitude")+
     ylab("Latitude")+
     guides(shape = "none")+
     labs(title = paste0("Comparison by subtrip: ", this_trip),
-         subtitle = paste0("includes ", length(these_points$trip_id), " GPS points and ",
+         subtitle = paste0("includes ", length(these_points$area), " GPS points and ",
                            length(unique(these_points$area)), " area(s)"),
          fill = "VTR Footprint by Percentile",
          color = "Active fishing Footprint") +
@@ -92,7 +100,7 @@ for (this_trip in unique_trips) {
 width = 8
 height = width*.618
   
-ggsave(filename = paste0(dir_output, "/vtrb_sfch_by_imgid/",this_trip,".png"),
+ggsave(filename = paste0(dir_output, "/polygons_by_haul_vtrb_by_imgid/",this_trip,".png"),
        plot = this_plot, width = width, height = height)
   }
 
@@ -141,7 +149,7 @@ for (this_trip in unique_trips) {
   width = 8
   height = width*.618
   
-  ggsave(filename = paste0(dir_output, "/mismatch_by_imgid/",this_trip,".png"),
+  ggsave(filename = paste0(dir_output, "/polygons_by_haul_mismatch_by_imgid/",this_trip,".png"),
          plot = this_plot, width = width, height = height)
   }
 
@@ -168,9 +176,9 @@ these_vtrb <- sf_bias %>%
 this_sfch <- sf_bias %>%
   filter(imgid==this_trip, type == "sfch")
 
-this_sfch  <-cbind(this_sfch, shape = "convex hull")
+this_sfch  <-cbind(this_sfch, shape = "polygon")
 
-these_points <- sf_gte_nad83 %>%
+these_points <- sf_gte %>%
   filter(imgid_chr==this_trip)
 
 # Change ordering manually
@@ -221,7 +229,7 @@ this_sfch <- sf_bias %>%
 
 this_sfch  <-cbind(this_sfch, shape = "convex hull")
 
-these_points <- sf_gte_nad83 %>%
+these_points <- sf_gte %>%
   filter(imgid_chr==this_trip)
 
 # Change ordering manually

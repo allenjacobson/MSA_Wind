@@ -24,21 +24,29 @@ dir_data <- paste0(path_base, "Data/", repository)
 
 ##############################
 # Pull in data
-sf_vtrb <- readRDS(paste0( dir_output, "/sf_vtrb_cumulative_imgid.rds"))
-sf_hulls_attributes <- readRDS(file = paste0(dir_output, "/sf_hulls_attributes_imgid.rds"))
-sf_bias <- readRDS(paste0(dir_output, "/sf_bias_imgid.rds"))
-sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
+sf_gte <- readRDS(file = paste0(dir_output, "/sf_gte_nad83_singles.rds"))
+sf_polygon <- readRDS(file = paste0(dir_output, "/sf_buffered_polygon_subtrip.rds"))
+sf_vtrb <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
+sf_bias <- readRDS(file= paste0(dir_output, "/sf_bias_imgid.rds"))
+
+sf_polygon <- st_make_valid(sf_polygon)
+sf_vtrb <- st_make_valid(sf_vtrb)
+
+#sf_vtrb <- readRDS(paste0( dir_output, "/sf_vtrb_cumulative_imgid.rds"))
+# sf_hulls_attributes <- readRDS(file = paste0(dir_output, "/sf_hulls_attributes_imgid.rds"))
+# sf_bias <- readRDS(paste0(dir_output, "/sf_bias_imgid.rds"))
+# sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
 
 ##############################
 #data prep
 sf_vtrb <- sf_vtrb %>%
-  filter(imgid %in% sf_hulls_attributes$imgid_chr)
+  filter(imgid %in% sf_polygon$imgid_chr)
 
-sf_hulls_attributes <- sf_hulls_attributes %>%
+sf_polygon <- sf_polygon %>%
   filter(imgid_chr %in% sf_vtrb$imgid)
 
 # estimate area of of sfch
-sf_hulls_attributes <- sf_hulls_attributes %>%
+sf_polygon <- sf_polygon %>%
   mutate(area = st_area(.) %>% as.numeric())
 
 # eatimate area of vtrb
@@ -49,7 +57,7 @@ sf_vtrb <- sf_vtrb %>%
 dt_vtrb <- as.data.table(sf_vtrb)
 setnames(dt_vtrb, "area", "vtrb_area")
 
-dt_sfch <- as.data.table(sf_hulls_attributes)
+dt_sfch <- as.data.table(sf_polygon)
 dt_sfch <- dt_sfch[, .(imgid_chr, area)]
 setnames(dt_sfch, "area", "sfch_area")
 
@@ -106,6 +114,7 @@ height = width*.618
 ggsave(filename = paste0(dir_output, "/plot_hist_log_by_imgid.png"),
        plot = plot_hist_log, width = width, height = height)
 
+##############################
 # plot mismatch
 (plot_mismatch <- ggplot( data = dt_bias_summary)+
   geom_bar(aes(x = percentile, y = total_bias, fill = type2), stat = "identity")+
@@ -125,3 +134,27 @@ height = width*.618
 ggsave(filename = paste0(dir_output, "/plot_mismatch_by_imgid.png"),
        plot = plot_mismatch, width = width, height = height)
 
+##############################
+# plot intersection
+
+dt_bias <- as.data.table(sf_bias)
+
+dt_bias$type2 <- str_replace(dt_bias$type, "_", " ")
+
+dt_bias_pre <- dt_bias[type2 %in% c("intersection", "false positive", "false negative"),
+                       c("imgid", "percentile", "area", "type2")]
+
+dt_bias_wide <- dcast(dt_bias_pre,
+                      imgid + percentile ~ type2,
+                      value.var = c("area"))
+
+(plot_mismatch <- ggplot( data = dt_bias_summary)+
+    geom_bar(aes(x = percentile, y = total_bias, fill = type2), stat = "identity")+
+    scale_fill_manual(values=c("red", "black"))+
+    #scale_y_log10()+
+    xlab("Percentile")+
+    ylab("Mismatch*")+
+    labs(title = "Mismatch for subtrips",
+         subtitle ="Can we minimize false positives and negatives?",
+         caption = "*cumulative area across all subtrips",
+         fill = NULL))

@@ -2,7 +2,7 @@
 library(data.table)
 library(sf)
 library(dplyr)
-library( ggplot2)
+library(ggplot2)
 library(ggpubr)
 library(ggspatial)
 library(stringr)
@@ -31,45 +31,54 @@ dir_data <- paste0(path_base, "Data/", repository)
 
 ##############################
 # Pull in data
-sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
+sf_gte <- readRDS(file = paste0(dir_output, "/sf_gte_nad83_singles.rds"))
+sf_polygon <- readRDS(file = paste0(dir_output, "/sf_buffered_polygon_subtrip.rds"))
+sf_vtrb <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
+sf_bias <- readRDS(file= paste0(dir_output, "/sf_bias_imgid.rds"))
 
-sf_hulls_attributes <- readRDS(paste0(dir_output, "/sf_hulls_attributes.rds"))
+sf_polygon <- st_make_valid(sf_polygon)
+sf_vtrb <- st_make_valid(sf_vtrb)
 
-sf_vtrb_split_mosaic <- readRDS(paste0(dir_output, "/sf_vtrb_split_mosaic.rds"))
-
-sf_bias <- readRDS(paste0(dir_output, "/sf_bias.rds"))
+#sf_hulls_attributes <- readRDS(paste0(dir_output, "/sf_hulls_attributes.rds"))
+#sf_vtrb_split_mosaic <- readRDS(paste0(dir_output, "/sf_vtrb_split_mosaic.rds"))
+#sf_bias <- readRDS(paste0(dir_output, "/sf_bias.rds"))
 
 ##############################
 #data prep
 
+# this is not working - need to go back to sf creation (3a) to add non-constant attributes
 # catch is in lbs
 # effort_dur is in hrs
-sf_hulls_attributes <- sf_hulls_attributes %>%
-  mutate(cpue = Summed_SUM_LOLIGO_CATCH/Summed_effort_dur,
-         season = ifelse(MONTH %in% c(1,2,3,4), "Jan-Apr",
-                         ifelse( MONTH %in% c(5,6,7,8), "May-Aug",
-                                 "Sep-Dec")))
+# sf_polygon <- sf_polygon %>%
+#   mutate(cpue = Summed_SUM_LOLIGO_CATCH/Summed_effort_dur,
+#          season = ifelse(MONTH %in% c(1,2,3,4), "Jan-Apr",
+#                          ifelse( MONTH %in% c(5,6,7,8), "May-Aug",
+#                                  "Sep-Dec")))
 
-#create single hull, add column with labels by plot
-single_hull <- sf_gte_nad83 %>%
-  summarise(geometry = st_combine(geometry)) %>%
-  st_convex_hull()
+single_polygon <- sf_polygon %>%
+  summarise(geometry = st_combine(geometry))
 
-single_hull<- cbind(Hull = "convex hull", single_hull)
+plot(single_polygon)
+
+single_polygon <- st_make_valid(single_polygon)
+
 
 #rank percentiles for plot
-sf_vtrb_split_mosaic$percentile <- factor(sf_vtrb_split_mosaic$percentile,
-                                         levels = c("100th", "75th", "50th", "25th"))
+sf_vtrb$percentile <- factor(sf_vtrb$percentile,
+                             levels = c("100th", "75th", "50th", "25th"))
 
 # aggregate all vtrb by percentile
-sf_vtrb__aggregate_split<- sf_vtrb_split_mosaic %>%
+sf_vtrb__aggregate_split<- sf_vtrb %>%
   group_by(percentile) %>%
   summarise(geometry = st_union(geometry))
 
 # calculate intersection and intersection area
+# creates new SF with intersection as geometry
+
+## Following line gives error
 sf_intersection_aggregate <- sf_vtrb__aggregate_split %>%
   group_by(percentile) %>%
-  st_intersection(single_hull) # creates new SF with intersection as geometry
+  st_intersection(single_polygon) #used to be single_hull instead of sf_polygon 
 
 sf_intersection_aggregate <- sf_intersection_aggregate %>%  # creates new sf
   mutate(area = st_area(.) %>% as.numeric()) %>%
@@ -105,7 +114,7 @@ sf_bias_aggregate$type2 <- str_replace(sf_bias_aggregate$type, "_", " ")
 ##############################
 #Plot all points as hull with all buffers
 (plot_aggregate<- ggplot()+
-  geom_sf(data=sf_vtrb_split_mosaic, aes(fill = percentile), color = NA)+
+  geom_sf(data=sf_vtrb, aes(fill = percentile), color = NA)+
   scale_fill_viridis_d(direction = -1)+
   geom_sf(data=single_hull, aes(color=Hull) ,fill=NA, size = 4)+
   scale_color_manual(values = alpha("red", .5))+
@@ -181,7 +190,7 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate_100.png"),
 
 ##############################
 #Plot all convex hulls together with features
-(plot_aggregate_hull_tot_loligo <- ggplot(sf_hulls_attributes) +
+(plot_aggregate_hull_tot_loligo <- ggplot(sf_polygon) +
    geom_sf(aes(fill=Summed_SUM_LOLIGO_CATCH), color = NA)+
    scale_fill_viridis_c(direction = -1, alpha = 0.5, option = "magma")+
    geom_sf(data=single_hull, aes(color=Hull) ,fill=NA, size = 4)+
@@ -197,7 +206,7 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate_100.png"),
                           pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
                           style = north_arrow_fancy_orienteering))
 
-(plot_aggregate_hull_prop_loligo <- ggplot(sf_hulls_attributes) +
+(plot_aggregate_hull_prop_loligo <- ggplot(sf_polygon) +
     geom_sf(aes(fill=Mean_prop_loligo), color = NA)+
     scale_fill_viridis_c(direction = -1, alpha = 0.5, option = "magma")+
     geom_sf(data=single_hull, aes(color=Hull) ,fill=NA, size = 4)+
@@ -212,7 +221,7 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate_100.png"),
                            pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
                            style = north_arrow_fancy_orienteering))
 
-(plot_aggregate_hull_cpue <- ggplot(sf_hulls_attributes) +
+(plot_aggregate_hull_cpue <- ggplot(sf_polygon) +
     geom_sf(aes(fill=cpue), color = NA)+
     scale_fill_viridis_c(direction = -1, alpha = 0.5, option = "magma", trans ="log")+
     geom_sf(data=single_hull, aes(color=Hull) ,fill=NA, size = 4)+
@@ -227,7 +236,7 @@ ggsave(filename = paste0(dir_output, "/plot_mismatch_aggregate_100.png"),
                            pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
                            style = north_arrow_fancy_orienteering))
 
-(plot_aggregate_hull_season <- ggplot(sf_hulls_attributes) +
+(plot_aggregate_hull_season <- ggplot(sf_polygon) +
     geom_sf(aes(fill=season), color = NA)+
     scale_fill_viridis_d(alpha = 0.3, option = "magma", end = .8)+
     geom_sf(data=single_hull, aes(color=Hull) ,fill=NA, size = 4)+
@@ -258,9 +267,9 @@ ggsave2(filename = paste0(dir_output, "/plot_catch_aggregate.png"),
 
 ## Create table of aggregate data
 #filter attributes for subset
-dt_attributes <- as.data.table(sf_hulls_attributes)
+dt_attributes <- as.data.table(sf_polygon)
 
-dt_attributes<- dt_attributes[tripid_chr %in% sf_vtrb_split_mosaic$tripid]
+dt_attributes<- dt_attributes[tripid_chr %in% sf_vtrb$tripid]
 
 length(unique(dt_attributes$VESSEL_NAME.x))
 length(unique(dt_attributes$tripid_chr))
@@ -268,5 +277,5 @@ min(dt_attributes$YEAR)
 max(dt_attributes$YEAR)
 unique(dt_attributes$MONTH)
 
-length(unique(sf_vtrb_split_mosaic$tripid))
+length(unique(sf_vtrb$tripid))
 
