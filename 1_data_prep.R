@@ -31,25 +31,26 @@ dir_data <- paste0(path_base, "Data/", repository)
 
 ##############################
 # Pull in data
-dt <- setDT(readRDS(file = paste0(dir_data,"/longfin_catch_gps_data.rds")))
-
-# Pull in CRS from VTR buffers
-crs_nad83 <- readRDS(paste0(dir_data, "/crs_vtr_buffer.rds"))
-
-# Add fields to pull VTR buffers later
-# IMGIDs - which should be the same as the docid used to annotate VTR buffers
-dt_imgids <- fread(paste0(dir_data, "/SF_MATCHED_TO_APSD_AREA.csv"))
-dt_imgids[,tripid_chr :=as.character(trip_id)][
-  ,imgid_chr :=as.character(IMGID)]
-
-
-## tests
-# test <- dt[ , .(count = length(unique(haul_id))), by = trip_area]
-# max(test$count)
-# test2 <- dt_imgids[ , .(count = length(unique(imgid_chr))), by = trip_area]
-# max(test2$count)
+dt <- setDT(readRDS(file = paste0(dir_data,"/longfin_catch_gps_data.rds"))) # gte data with trips
+dt_imgids <- as.data.table(readRDS(paste0(dir_data, "/VERSWH.IMAGES_TO_EFFORTS.rds"))) # to match hauls to subtrips
+crs_nad83 <- readRDS(paste0(dir_data, "/crs_vtr_buffer.rds")) # Pull in CRS from VTR buffers
+dt_revenue <- setDT(readRDS(file = paste0(dir_data, "/apsd.dmis_all_years_squid_2015_on.rds")))
 
 ##############################
+# Prep Data
+dt_imgids[,tripid_chr :=as.character(TRIP_ID)][
+  ,imgid_chr :=as.character(IMG_ID)]
+
+dt_revenue[,docid_chr :=as.character(DOCID)][
+  , char_docid := nchar(docid_chr)][
+    ,link_chr :=as.character(LINK)][
+    , char_link := nchar(link_chr)]
+
+dt[,tripid_chr :=as.character(trip_id)][
+  , char_tripid := nchar(tripid_chr)]
+
+# look at CAtch Acountingn and Monitoring System for info about APSD
+
 # Trim data to only include that meet pre-specified criteria
 # First, calculate loglio catch
 dt_trimmed <- dt[, prop_loligo := TOT_LOLIGO_CATCH/TOT_CATCH][
@@ -59,38 +60,41 @@ dt_trimmed <- dt[, prop_loligo := TOT_LOLIGO_CATCH/TOT_CATCH][
   , isNum := numbers_only(trip_id)][ #add column, T = numbers only
   isNum == TRUE] #Filter alphanumeric trips
 
-# new version does not trim - maybe Andy already filtered data 
+# new version does not trim - maybe Andy already filtered data
 dt <- dt_trimmed
+remove(dt_trimmed)
 
 ##############################
 # Prep data to coerce into spatial points data frame:
 # Clean, subset, and export data:
 dt_gte <- dt[has_GTE=="YES"] # Select trips with GPS data (GTE)
 dt_gte <- na.omit(dt_gte , c("LONGITUDE", "LATITUDE")) # rows with NAs in lon and lat
-dt_gte <- dt_gte[,tripid_chr :=as.character(trip_id)]
 
 # Match cleaned dataset with IMGID dataset
-# remove rows that do not have trip_area in other dataset
-dt_imgids_matched <- dt_imgids[trip_area %in% dt_gte$trip_area]
-dt_gte_matched <- dt_gte[trip_area %in% dt_imgids_matched$trip_area]
+# remove rows that do not have trip_id in other dataset
+dt_imgids_matched <- dt_imgids[tripid_chr %in% dt_gte$tripid_chr]
+dt_gte_matched <- dt_gte[tripid_chr %in% dt_imgids_matched$tripid_chr]
+dt_revenue_matched <- dt_revenue[DOCID %in% dt_imgids_matched$trip_id]
 
+##############################
+# Create Grouping variable for hauls - using 
+#group by stat area, gear size, mesh size
+dt_imgids_matched[, group_id := .GRP, by = .(tripid_chr, EFFORT_NUM)]
+dt_gte_matched[, group_id := .GRP, by = .(tripid_chr, EFFORT_NUM)]
+
+##############################
+# Join tables by trip_area and group_id
 # join cleaned imgids to dt_gte_matched
-dt_for_join <- dt_imgids_matched[, .(trip_area, imgid_chr)]
-setkey(dt_for_join, trip_area)
-setkey(dt_gte_matched, trip_area)
+dt_for_join <- dt_imgids_matched[, .(group_id, imgid_chr)]
+setkey(dt_for_join, imgid_chr)
+setkey(dt_revenue_matched, imgid_chr)
 
-dt_gte_joined <- dt_gte_matched[dt_for_join, nomatch = 0, allow.cartesian=TRUE]
+# this creates a problem
+dt_gte_joined <- dt_gte_matched[dt_for_join, nomatch = 0] #, allow.cartesian=TRUE]
+setkey(dt_gte_joined, group_id)
+setkey(dt_gte_matched, group_id)
 
-# Filter by unique imgid-triparea combination
 
-#dt_prefilter <- dt_gte_joined[ , .(count = length(unique(imgid_chr))), by = trip_area]
-#dt_filter <- dt_prefilter[count == 1]
-#length(dt_prefilter$trip_area)-length(dt_filter$trip_area)
-# filter removes 17 trips
-#dt_gte_final <- dt_gte_joined[trip_area %in% dt_filter$trip_area]
-
-#length(dt_gte_joined$trip_area)-length(dt_gte_final$trip_area)
-# this filter removes 40985 gte rows
 
 dt_gte_final <- dt_gte_joined
 saveRDS(dt_gte_final, paste0(dir_output,"/dt_gte.rds"))
@@ -110,3 +114,9 @@ saveRDS(sf_gte_nad83, paste0(dir_output,"/sf_gte_nad83.rds"))
 
 # can't use this - b/c names are too long for a shp file, must be <10 chr
 # st_write(sf_gte_nad83, paste(dir_output, "/sf_gte_nad83.shp"), append = FALSE)
+
+##############################
+# Confirm there is only one imgid for each group_id
+dt_imgids_test <- dt_imgids_matched[, .(imgid_chr, group_id)]
+dt_imgids_summary <- dt_imgids_test[, .N, by = group_id]
+dt_multiple_imgids <- dt_imgids_summary[N>1] # this should be an empty table
