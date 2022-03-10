@@ -75,6 +75,7 @@ for (this_imgid in unique_imgids) {
                                 trip_area = c(this_trip_area, this_trip_area, this_trip_area, this_trip_area),
                              imgid=c(this_imgid, this_imgid, this_imgid, this_imgid),
                              percentile=c("25th", "50th", "75th", "100th"),
+                             value = unique_values[1:4, values],
                              paths = c(new_path_25,new_path_50, new_path_75,new_path_100))
       
       dt_paths_vtrb_split <- rbindlist(list(dt_paths_vtrb_split, these_paths))
