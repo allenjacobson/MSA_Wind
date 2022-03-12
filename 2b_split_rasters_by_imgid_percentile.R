@@ -56,6 +56,19 @@ for (this_imgid in unique_imgids) {
       raster_75<- this_rast == unique_values[percentile=="75th", values]
       raster_100<- this_rast == unique_values[percentile=="100th", values]
       
+      # Count the number of cells with each value
+      count_25 <- global(this_rast== unique_values[percentile=="25th", values],
+                         sum, na.rm=TRUE)
+      count_50 <- global(this_rast== unique_values[percentile=="50th", values],
+                         sum, na.rm=TRUE)
+      count_75 <- global(this_rast== unique_values[percentile=="75th", values],
+                         sum, na.rm=TRUE)
+      count_100 <- global(this_rast== unique_values[percentile=="100th", values],
+                         sum, na.rm=TRUE)
+      
+      counts <-rbind(count_25, count_50, count_75, count_100)
+      counts <- data.table(sum = counts$sum)
+      
       # create file names, save rasters
       path_base <- paste0(dir_output, "/vtrbs_split_by_percentile")
       new_path_25 <- paste0(path_base, "/25th_", this_tripid, "_", this_imgid, ".tif")
@@ -76,6 +89,7 @@ for (this_imgid in unique_imgids) {
                              imgid=c(this_imgid, this_imgid, this_imgid, this_imgid),
                              percentile=c("25th", "50th", "75th", "100th"),
                              value = unique_values[1:4, values],
+                             counts = counts[,sum],
                              paths = c(new_path_25,new_path_50, new_path_75,new_path_100))
       
       dt_paths_vtrb_split <- rbindlist(list(dt_paths_vtrb_split, these_paths))
@@ -89,5 +103,9 @@ for (this_imgid in unique_imgids) {
       warning(this_warning) 
     }
 }
+
+dt_paths_vtrb_split[, value_lower_3 := ifelse(percentile == "100th", 0, (1/3)/counts)][
+  , value_lower_2 := ifelse(percentile %in% c("100th", "75th"), 0, (1/2)/counts)][
+    , value_lower_1 := ifelse(percentile %in% c("100th", "75th", "50th"), 0, (1/1)/counts)]
 
 saveRDS(dt_paths_vtrb_split, paste0(dir_output, "/dt_paths_vtrb_split_by_percentile.rds"))

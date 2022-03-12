@@ -128,8 +128,8 @@ dt_gte_revenue <- dt_gte_joined[dt_revenue_matched, nomatch = 0]
 dt_gte_final <- dt_gte_revenue
 saveRDS(dt_gte_final, paste0(dir_output,"/dt_gte.rds"))
 saveRDS(dt_imgids_matched, paste0(dir_output, "/dt_imgids_matched.rds"))
-saveRDS(dt_revenue_matched,  paste0(dir_output, "/dt_revenue.rds")
-
+saveRDS(dt_revenue_matched,  paste0(dir_output, "/dt_revenue.rds"))
+        
 ##############################
 # Coerce into SF (simple features)
 #crs_proj <- st_crs("+init=epsg:4326") # EPSG code for WGS84, which taks XY or long lat
