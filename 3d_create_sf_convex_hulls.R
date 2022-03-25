@@ -4,12 +4,47 @@ library(sf)
 library(dplyr)
 
 # This script builds a SF from the Study Fleet GTE cleaned data
-# Creates one convex hulls per trip
-# Summarizes features by trip as means, sums, or
+# Creates one convex hulls per haul
+# Then merges hull by subtrip and trip
+# Identifies features that are unique by grouping variable and adds to sf features by trip as means, sums, or
 # single values that represent entire trip
 
 ##############################
 # Functions
+sf_by_group <- function(sf_attributes, group_as_string, shapes){
+  dt_attributes <- st_drop_geometry(sf_attributes)
+  dt_attributes_count <- dt_attributes[, lapply(.SD, uniqueN), by = group_as_string]
+  dt_attributes_max <- dt_attributes_count[, lapply(.SD, max)]
+  attribute_names <- names(dt_attributes_max)
+  attribute_count <- unlist(dt_attributes_max[1])
+  
+  dt_attributes_select <- as.data.table(cbind(attribute_names, attribute_count))
+  dt_attributes_select<- dt_attributes_select[attribute_count==1, attribute_names]
+  dt_attributes_select <- append(dt_attributes_select, group_as_string)
+  
+  dt_attributes_group <- dt_attributes[, mget(dt_attributes_select)]
+  
+  dt_attributes_constant<- unique(dt_attributes_group)
+  
+  group <- which( colnames(dt_attributes_constant)==group_as_string )
+  
+  dt_attributes_group_filtered <- dt_attributes_constant[dt_attributes_constant[[group]] %in%
+                                                           get(group_as_string, shapes)]
+  
+  names_all <- names(dt_attributes)
+  names_constant <- names(dt_attributes_constant)
+  names_missing <- subset(names_all , !(names_all %in% names_constant))
+  
+  #merge shapes with attributes
+  dt_shapes_group <- inner_join(dt_attributes_constant,
+                                 shapes,
+                                 by = group_as_string)
+  #coerce into sf
+  sf_shapes_group <- st_set_geometry(dt_shapes_group,
+                                      dt_shapes_group$geometry)
+  
+  return(sf_shapes_group)
+}
 
 ##############################
 # Set directories
@@ -28,104 +63,71 @@ dir_data <- paste0(path_base, "Data/", repository)
 # Pull in data
 sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
 
+dt_paths_vtrb <- readRDS(paste0(dir_output, "/dt_paths_vtrb.rds"))
+
+##############################
+# data prep
+sf <- sf_gte_nad83 %>%
+  filter(imgid_chr %in% dt_paths_vtrb$imgid)
+
 ##############################
 # create Convex Hull from study fleet data by trip
 #group and summarise by species, and draw hulls
 hulls <- sf_gte_nad83 %>%
+  group_by(haul_id) %>%
+  summarise(geometry = st_combine(geometry)) %>%
+  st_convex_hull()
+
+
+############################## Need to modify
+# build feature table by haul_id
+sf_hulls_haulid <- sf_by_group(sf_attributes = sf,
+                                 group_as_string = "haul_id",
+                                 shapes = hulls)
+
+# add buffer
+# confirm units
+st_crs(sf_hulls_haulid)$units
+
+sf_buffered_hulls_haulid<- st_buffer(sf_hulls_haulid,
+                                       dist = 50, # in meters 50m ~ 150ft
+                                       nQuadSegs =30, #default
+                                       endCapStyle = "ROUND", #default
+                                       joinStyle = "ROUND", #default
+                                       mitreLimit = 1, #default
+                                       singleSide = FALSE) #default
+
+# export by haul_id
+saveRDS(object = sf_buffered_hulls_haulid,
+        file = paste0(dir_output, "/sf_buffered_hulls_haulid.rds"))
+
+##############################
+# build feature table by subtrip
+sf_buffered_hulls_subtrip <-
+  sf_buffered_hulls_haulid %>%
+  group_by(imgid_chr) %>%
+  summarise(geometry = st_combine(geometry))
+
+sf_buffered_hulls_subtrip <- sf_by_group(sf_attributes = sf_buffered_hulls_haulid,
+                                           group_as_string = "imgid_chr",
+                                           shapes = sf_buffered_hulls_subtrip)
+
+# export by haul_id
+saveRDS(object = sf_buffered_hulls_subtrip,
+        file = paste0(dir_output, "/sf_buffered_hulls_subtrip.rds"))
+
+##############################
+# build feature table by trip
+sf_buffered_hulls_trip <-
+  sf_buffered_hulls_subtrip %>%
   group_by(tripid_chr) %>%
-  summarise(geometry = st_combine(geometry)) %>%
-  st_convex_hull()
+  summarise(geometry = st_combine(geometry))
 
-##############################
-# build feature table at trip level
-dt_attributes <- st_drop_geometry(sf_gte_nad83)
+sf_buffered_hulls_trip <- sf_by_group(sf_attributes = sf_buffered_hulls_subtrip,
+                                        group_as_string = "tripid_chr",
+                                      shapes = sf_buffered_hulls_trip)
 
-# Build subtable for for features that are uniform for entire trip
-# removed gear_code_vtr and gear_code_obs because one trip has multiple
-dt_attributes_tripid <- dt_attributes[, .(permit, sail_date, TOT_CATCH, TOT_LOLIGO_CATCH,
-                                     source, year, prop_loligo, tripid_chr)]
+# export by haul_id
+saveRDS(object = sf_buffered_hulls_trip,
+        file = paste0(dir_output, "/sf_buffered_hulls_trip.rds"))
 
-# Used these two lines to find features with multiple values by trip
-# removed these two features, and then re-ran unique - now features are unique by trip
-#dt_attributes_tripidCount <- dt_attributes_tripid[, lapply(.SD, uniqueN),
-#                                            by = tripid_chr]
-#dt_attributes_tripidMax <- dt_attributes_tripidCount[, lapply(.SD, max)]
-
-dt_attributes_tripid_constant<- unique(dt_attributes_tripid)
-
-# Build subtable for for features that should be summed for entire trip
-these_attributes <- c("effort_dur", "LOLIGO_KEPTWT", "LOLIGO_DISCARDTWT", "SUM_LOLIGO_CATCH")
-
-dt_attributes_tripid_sum <- dt_attributes[, lapply(.SD, sum), by = .(tripid_chr),
-                                       .SDcols = these_attributes]
-
-new_names <- c("Summed_effort_dur", "Summed_LOLIGO_KEPTWT",
-              "Summed_LOLIGO_DISCARDTWT", "Summed_SUM_LOLIGO_CATCH")
-
-# Add CPUE - catch per effort duration?
-
-setnames(dt_attributes_tripid_sum, these_attributes, new_names)
-
-# Build subtable for for features that should be averaged for entire trip
-these_attributes <- c("depth", "TEMP", "BOT_DEPTH_M", "GEAR_DEPTH", "prop_loligo")
-
-dt_attributes_tripid_avg <- dt_attributes[, lapply(.SD, mean), by = .(tripid_chr),
-                                     .SDcols = these_attributes]
-
-new_names <- c("Mean_depth", "Mean_TEMP", "Mean_BOT_DEPTH_M", "Mean_GEAR_DEPTH", "Mean_prop_loligo")
-
-setnames(dt_attributes_tripid_avg, these_attributes, new_names)
-
-
-#join features - unique, sum, average, min, max
-dt_attributes_joined <- dt_attributes_tripid_sum[dt_attributes_tripid_avg,
-                                             on = .(tripid_chr = tripid_chr)]
-
-dt_attributes_joined <-dt_attributes_tripid_constant[dt_attributes_joined,
-                                            on = .(tripid_chr = tripid_chr)]
-
-#join all features to sf - summarized by tripid
-dt_hulls_attributes <- inner_join(dt_attributes_joined,hulls, by = "tripid_chr")
-sf_hulls_attributes_tripid <- st_set_geometry(dt_hulls_attributes,
-                                      dt_hulls_attributes$geometry)
-
-saveRDS(object = sf_hulls_attributes_tripid,
-        file = paste0(dir_output, "/sf_hulls_attributes_tripid.rds"))
-
-##############################
-# create Convex Hull from study fleet data by imgid
-#group and summarise by species, and draw hulls
-hulls <- sf_gte_nad83 %>%
-  group_by(trip_area) %>%
-  summarise(geometry = st_combine(geometry)) %>%
-  st_convex_hull()
-
-##############################
-# build feature table at trip level
-dt_attributes <- st_drop_geometry(sf_gte_nad83)
-
-# Build subtable for for features that are uniform for entire trip
-# removed gear_code_vtr and gear_code_obs because one trip has multiple
-dt_attributes_imgid <- dt_attributes[, .(permit, area, sail_date, TOT_CATCH, TOT_LOLIGO_CATCH,
-                                         source, year, prop_loligo, tripid_chr, trip_area, imgid_chr)]
-
-# Used these two lines to find features with multiple values by trip
-# all features were unique for imgidid
-# first count number of unique values by imgiid
-#dt_attributes_imgid_count <- dt_attributes_imgid[, lapply(.SD, uniqueN), 
-#                                                  by = imgid_chr]
-# then take the maximum value, if 1, then constant across imgid
-#dt_attributes_imgid_max <- dt_attributes_imgid_count[, lapply(.SD, max)]
-
-dt_attributes_imgid_constant<- unique(dt_attributes_imgid)
-
-#join all features to sf - summarized by tripid
-dt_hulls_attributes <- inner_join(dt_attributes_imgid_constant,
-                                  hulls,
-                                  by = "trip_area")
-#coerce dt_hulls_attributes into sf
-sf_hulls_attributes <- st_set_geometry(dt_hulls_attributes,
-                                       dt_hulls_attributes$geometry)
-
-saveRDS(object = sf_hulls_attributes,
-        file = paste0(dir_output, "/sf_hulls_attributes_imgid.rds"))

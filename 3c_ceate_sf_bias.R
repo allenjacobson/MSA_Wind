@@ -26,9 +26,7 @@ dir_data <- paste0(path_base, "Data/", repository)
 ##############################
 # Pull in data
 sf_vtrb_cumulative_imgid <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
-
 sf_buffered_polygon_subtrip <- readRDS(file = paste0(dir_output, "/sf_buffered_polygon_subtrip.rds"))
-
 
 #sf_vtrb_cumulative_tripid <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_tripid.rds"))
 #sf_hulls_attributes_imgid <- readRDS(file = paste0(dir_output, "/sf_hulls_attributes_imgid.rds"))
@@ -129,10 +127,14 @@ for (this_trip in unique_trips) {
 saveRDS(object = sf_bias,
         file= paste0(dir_output, "/sf_bias_imgid.rds"))
 
-# warnings printed
+# # warnings printed
 # [1] "no intersection for this trip:1507731707022302"
+# [1] "no false negative for this trip:3206451704290101"
 # [1] "no false negative for this trip:3206451705060001"
-# [1] "no false negative for this trip:3206991605020102"
-# [1] "no false negative for this trip:3305211601071402"
-# [1] "no false negative for this trip:3307821601301601"
+# [1] "no false negative for this trip:3206451705240101"
+# [1] "no false negative for this trip:3206451802182102"
+# [1] "no false negative for this trip:3206991705040202"
+# [1] "no false negative for this trip:3303391707130101"
+# [1] "no false negative for this trip:3305341804191802"
+# [1] "no false negative for this trip:3307821902281603"
 # [1] "no false negative for this trip:4105141701111902"

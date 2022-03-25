@@ -8,6 +8,8 @@ library(dplyr)
 # Summarizes features by trip as means, sums, or
 # single values that represent entire trip
 
+# Build concave hull
+# https://gis.stackexchange.com/questions/354276/using-r-and-sf-create-an-concave-envelope-polygon-around-multilinestring
 ##############################
 # Functions
 #sf_attributes = sf_buffered_polygon_haulid

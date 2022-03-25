@@ -10,6 +10,14 @@ library(stringr)
 
 # This script creates maps for each imgid
 
+# Problem trips - multiple buffers by imgid, and  missing percentiles?!?!
+#3104731611041101
+#3104731611041102
+#3206451704290101
+#3206451704290102
+#3206451705240101
+
+
 ##############################
 # Functions
 
@@ -28,12 +36,18 @@ dir_data <- paste0(path_base, "Data/", repository)
 
 ##############################
 # Pull in data
-sf_gte <- readRDS(file = paste0(dir_output, "/sf_gte_nad83_singles.rds"))
-sf_polygon <- readRDS(file = paste0(dir_output, "/sf_buffered_polygon_subtrip.rds"))
+sf_gte <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
 sf_vtrb <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
-sf_bias <- readRDS(file= paste0(dir_output, "/sf_bias_imgid.rds"))
+sf_shapes <-readRDS(file = paste0(dir_output, "/sf_buffered_hulls_subtrip"))
+sf_bias <- readRDS(file= paste0(dir_output, "/sf_bias_hulls_imgid.rds"))
 
-sf_polygon <- st_make_valid(sf_polygon)
+
+#sf_shapes <- readRDS(file = paste0(dir_output, "/sf_buffered_polygon_subtrip.rds"))
+#sf_bias <- readRDS(file= paste0(dir_output, "/sf_bias_imgid.rds"))
+
+
+# Prep data
+sf_shapes <- st_make_valid(sf_shapes)
 sf_vtrb <- st_make_valid(sf_vtrb)
 
 # old files
@@ -45,9 +59,9 @@ sf_vtrb <- st_make_valid(sf_vtrb)
 ##############################
 #data prep
 sf_vtrb <- sf_vtrb %>%
-  filter(imgid %in% sf_polygon$imgid_chr)
+  filter(imgid %in% sf_shapes$imgid_chr)
 
-sf_polygon <- sf_polygon %>%
+sf_shapes <- sf_shapes %>%
   filter(imgid_chr %in% sf_vtrb$imgid)
 
 ##############################
@@ -55,7 +69,7 @@ sf_polygon <- sf_polygon %>%
 
 #sf_bias is missing trips - only contains 117 - instead of 220
 unique_trips <- unique(sf_bias$imgid)
-this_trip <- unique_trips[[5]]
+this_trip <- unique_trips[[10]]
 
 for (this_trip in unique_trips) {
   these_vtrb <- sf_bias %>%
@@ -99,7 +113,7 @@ for (this_trip in unique_trips) {
 width = 8
 height = width*.618
   
-ggsave(filename = paste0(dir_output, "/polygons_by_haul_vtrb_by_imgid/",this_trip,".png"),
+ggsave(filename = paste0(dir_output, "/hulls_by_haul_vtrb_by_imgid/",this_trip,".png"),
        plot = this_plot, width = width, height = height)
   }
 
@@ -148,7 +162,7 @@ for (this_trip in unique_trips) {
   width = 8
   height = width*.618
   
-  ggsave(filename = paste0(dir_output, "/polygons_by_haul_mismatch_by_imgid/",this_trip,".png"),
+  ggsave(filename = paste0(dir_output, "/hulls_by_haul_mismatch_by_imgid/",this_trip,".png"),
          plot = this_plot, width = width, height = height)
   }
 
@@ -170,7 +184,7 @@ for (this_trip in unique_trips) {
 
 ##############################
 # Example plots of ideal trip for presentation 
-this_trip = "1507731707022301"
+this_trip = "1507731707070101"
 
 these_vtrb <- sf_bias %>%
   filter(imgid==this_trip, type == "vtrb")
@@ -211,7 +225,7 @@ these_vtrb$percentile <- factor(these_vtrb$percentile,
 
 # single convex hull with points
 (plot_example_sfch<- ggplot()+
-  geom_sf(data=this_sfch, color = "red", fill=NA, size = 1)+
+  geom_sf(data=this_sfch, color = "red", fill="red", alpha = .5, size = 1)+
   geom_sf(data = these_points, size = 1, alpha = .1)+
   xlab("Longitude")+
   ylab("Latitude")+
