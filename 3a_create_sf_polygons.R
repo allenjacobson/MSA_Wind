@@ -10,7 +10,12 @@ library(dplyr)
 
 ##############################
 # Functions
-#group_as_string <- "haul_id"
+#sf_attributes = sf_buffered_polygon_haulid
+#group_as_string = "IMGID"
+#polygons = sf_buffered_polygon_subtrip
+
+#test <- dt_attributes_count[trip_id >1]
+
 sf_by_group <- function(sf_attributes, group_as_string, polygons){
   dt_attributes <- st_drop_geometry(sf_attributes)
   dt_attributes_count <- dt_attributes[, lapply(.SD, uniqueN), by = group_as_string]
@@ -67,40 +72,11 @@ dt_paths_vtrb <- readRDS(paste0(dir_output, "/dt_paths_vtrb.rds"))
 
 ##############################
 # data prep
-sf_filtered <- sf_gte_nad83 %>%
+sf <- sf_gte_nad83 %>%
   filter(imgid_chr %in% dt_paths_vtrb$imgid)
 
-length(sf_gte_nad83$trip_area)-length(sf_filtered$trip_area)
-# removes 7235 gps points
-
-# select ideas and filter to unique combinations
-ids <- st_drop_geometry(sf_gte_nad83[, c("trip_area", "imgid_chr", "haul_id")])
-unique_ids <- unique(ids)
-
-# count imgids by haul_id
-imgid_by_haulid <- unique_ids[ , .(count = length(unique(imgid_chr))), by = haul_id]
-
-# subset ideas as simple, problem, and selected
-# simple = 1 imgid per haulid
-# problem = multiple imgids per haulid
-# selected = problem ids filtered to one imgid per haulid
-simple_ids <- unique_ids[haul_id %in% imgid_by_haulid[count == 1]$haul_id]
-problem_ids <- unique_ids[haul_id %in% imgid_by_haulid[count >1]$haul_id]
-selected_ids <- problem_ids[, .SD[imgid_chr == min(imgid_chr)], by = haul_id]
-
-# combine simple and selected ids to create a curated dataset
-ids_final <- rbind(simple_ids, selected_ids)
-
-# filter dataset using simple and selected ids
-
-sf <- sf_filtered %>%
-  filter(imgid_chr %in% ids_final$imgid_chr)
-
-saveRDS(object = sf,
-        file = paste0(dir_output, "/sf_gte_nad83_singles.rds"))
-
-remove(list=setdiff(ls(), c("sf", "sf_by_group", "repository", "path_base",
-                            "dir_output", "dir_data")))
+length(unique(sf_gte_nad83$imgid_chr))-length(unique(sf$imgid))
+# removes 6 imgids
 
 ##############################
 # create polygons from study fleet data by haul_id
@@ -108,7 +84,7 @@ remove(list=setdiff(ls(), c("sf", "sf_by_group", "repository", "path_base",
 polygons <- sf %>%
   group_by(haul_id) %>%
   filter(n() > 3) %>%
-  summarise(geometry = st_combine(geometry)) %>%
+  summarise(geometry = st_union(geometry)) %>%
   st_cast("POLYGON")
 
 ##############################
@@ -122,7 +98,7 @@ sf_polygon_haulid <- sf_by_group(sf_attributes = sf,
 st_crs(sf_polygon_haulid)$units
 
 sf_buffered_polygon_haulid<- st_buffer(sf_polygon_haulid,
-                                       dist = 50, # assuming in meters 50m ~ 150ft
+                                       dist = 50, # in meters 50m ~ 150ft
                                        nQuadSegs =30, #default
                                        endCapStyle = "ROUND", #default
                                        joinStyle = "ROUND", #default
@@ -137,11 +113,11 @@ saveRDS(object = sf_buffered_polygon_haulid,
 # build feature table by subtrip
 sf_buffered_polygon_subtrip <-
   sf_buffered_polygon_haulid %>%
-  group_by(trip_area) %>%
+  group_by(imgid_chr) %>%
   summarise(geometry = st_combine(geometry))
 
 sf_buffered_polygon_subtrip <- sf_by_group(sf_attributes = sf_buffered_polygon_haulid,
-                                           group_as_string = "trip_area",
+                                           group_as_string = "imgid_chr",
                                            polygons = sf_buffered_polygon_subtrip)
 
 # export by haul_id
