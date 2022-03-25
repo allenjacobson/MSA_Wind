@@ -74,4 +74,4 @@ sf_vtrb_cumulative_imgid <- cbind(geometry = sf_vtrb_cumulative_imgid,
                                   imgid = dt_paths_vtrb_cumulative_imgid$imgid)
 #save sf
 saveRDS(object = sf_vtrb_cumulative_imgid,
-        f
+        file= paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
