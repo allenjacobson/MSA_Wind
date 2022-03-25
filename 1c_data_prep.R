@@ -34,16 +34,15 @@ dir_data <- paste0(path_base, "Data/", repository)
 dt <- setDT(readRDS(file = paste0(dir_data,"/longfin_catch_gps_data.rds"))) # gte data with trips
 # to match hauls to subtrips, this came from Mike M. from the rollup
 dt_imgids <- as.data.table(readRDS(paste0(dir_data, "/VERSWH.IMAGES_TO_EFFORTS.rds"))) 
-crs_nad83 <- readRDS(paste0(dir_data, "/crs_vtr_buffer.rds")) # Pull in CRS from VTR buffers
+crs_nad83 <- readRDS(paste0(dir_data, "/crs_vtr_buffer.rds")) # Pull in CRS from VTR 
+dt_revenue <- as.data.table(readRDS(paste0(dir_output,"/dt_revenue.rds")))
+
 # Geret suggested using this table
 #dt_revenue <- setDT(readRDS(file = paste0(dir_data, "/apsd.dmis_all_years_squid_2015_on.rds")))
 # Ben suggested this table
-dt_revenue <- setDT(readRDS(file = paste0(dir_data, "/apsd.dmis_sfclam_040620.rds")))
+#dt_revenue <- setDT(readRDS(file = paste0(dir_data, "/apsd.dmis_sfclam_040620.rds")))
+# look at CAtch Acountingn and Monitoring System for info about APSD
 
-dt_summary <- dt_revenue[, .N, by = .(DOCID)]
-min(dt_summary$N)
-max(dt_summary$N)
-remove(dt_summary)
 ##############################
 # Prep Data
 dt_imgids[,tripid_chr :=as.character(TRIP_ID)][
@@ -54,15 +53,11 @@ format(test, scientific=F)
 test[, imgid_chr := as.character(IMG_ID)]
 remove(test)
 
-dt_revenue[, docid_chr :=as.character(DOCID)][
-  , char_docid := nchar(docid_chr)][
-  , imgid_chr := as.character(IMGID)][
+dt_revenue[, imgid_chr := as.character(IMGID)][
   , char_imgid := nchar(imgid_chr)]
 
 dt[,tripid_chr :=as.character(trip_id)][
   , char_tripid := nchar(tripid_chr)]
-
-# look at CAtch Acountingn and Monitoring System for info about APSD
 
 # Trim data to only include that meet pre-specified criteria
 # First, calculate loglio catch
@@ -91,16 +86,9 @@ dt_revenue_matched <- dt_revenue[imgid_chr %in% dt_imgids_matched$imgid_chr]
 # remove any subtrips in VTR buffer set that are not 
 dt_imgids_matched <- dt_imgids_matched[imgid_chr %in% dt_revenue_matched$imgid_chr]
 
-# length(unique(dt_imgids_matched$tripid_chr))
-# length(unique(dt_imgids_matched$imgid_chr))
-# length(unique(dt_revenue_matched$docid_chr))
-length(unique(dt_revenue_matched$imgid_chr))
-# length(unique(dt_gte_matched$tripid_chr))
+length(unique(dt_imgids_matched$tripid_chr)) == length(unique(dt_gte_matched$tripid_chr))
 
-##############################
-# Summarize revenue by stubtrip
-dt_revenue_summed <- dt_revenue_matched[, .(dollar_sum = sum(DOLLAR)),
-                                        by = .(imgid_chr, docid_chr)]
+length(unique(dt_imgids_matched$imgid_chr)) == length(unique(dt_revenue_matched$IMGID))
 
 ##############################
 # Create Grouping variable for hauls - using 
@@ -116,10 +104,9 @@ setkey(dt_for_join, group_id)
 setkey(dt_gte_matched, group_id)
 dt_gte_joined <- dt_gte_matched[dt_for_join, nomatch = 0] 
 
-length(unique(dt_gte_joined$imgid_chr))
-length(unique(dt_revenue_summed$imgid_chr))
+dt_revenue_matched <- dt_revenue_matched[imgid_chr %in% dt_gte_joined$imgid_chr]
 
-dt_revenue_matched <- dt_revenue_summed[imgid_chr %in% dt_gte_joined$imgid_chr]
+length(unique(dt_gte_joined$imgid_chr)) == length(unique(dt_revenue_matched$imgid_chr))
 
 setkey(dt_gte_joined, imgid_chr)
 setkey(dt_revenue_matched, imgid_chr)
@@ -128,7 +115,7 @@ dt_gte_revenue <- dt_gte_joined[dt_revenue_matched, nomatch = 0]
 dt_gte_final <- dt_gte_revenue
 saveRDS(dt_gte_final, paste0(dir_output,"/dt_gte.rds"))
 saveRDS(dt_imgids_matched, paste0(dir_output, "/dt_imgids_matched.rds"))
-saveRDS(dt_revenue_matched,  paste0(dir_output, "/dt_revenue.rds"))
+saveRDS(dt_revenue_matched,  paste0(dir_output, "/dt_revenue_matched.rds"))
         
 ##############################
 # Coerce into SF (simple features)
