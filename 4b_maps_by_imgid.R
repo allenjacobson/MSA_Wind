@@ -50,7 +50,6 @@ sf_vtrb <- sf_vtrb %>%
 sf_polygon <- sf_polygon %>%
   filter(imgid_chr %in% sf_vtrb$imgid)
 
-
 ##############################
 #Plot by trip
 
@@ -74,7 +73,7 @@ for (this_trip in unique_trips) {
   
   # Change ordering manually
   these_vtrb$percentile <- factor(these_vtrb$percentile,
-                                  levels = c("100th", "75th", "50th", "25th"))
+                                  levels = c("90th", "75th", "50th", "25th"))
   
   this_plot<- ggplot()+
     geom_sf(data=these_vtrb, aes(fill = percentile), color = NA)+
@@ -119,13 +118,13 @@ for (this_trip in unique_trips) {
 
   # Change ordering manually
   these_false_negatives$percentile <- factor(these_false_negatives$percentile,
-                                             levels = c("100th", "75th", "50th", "25th"))
+                                             levels = c("90th", "75th", "50th", "25th"))
   # Change ordering manually
   these_false_positives$percentile <- factor(these_false_positives$percentile,
-                                             levels = c("100th", "75th", "50th", "25th"))
+                                             levels = c("90th", "75th", "50th", "25th"))
   # Change ordering manually
   these_intersections$percentile <- factor(these_intersections$percentile,
-                                           levels = c("100th", "75th", "50th", "25th"))
+                                           levels = c("90th", "75th", "50th", "25th"))
   
   this_bias <- rbind(these_intersections,
                      these_false_positives,
@@ -157,18 +156,21 @@ for (this_trip in unique_trips) {
 ##############################
 #these are tripids - need to look through to pick illustrative imgids
 
-
+# At trip level
 #33033916070114_twoSpaced
 #32064517052800_three
 #31047319062808_smaller
 #31047319052908_two
 #15077317070701_ideal
 
-#33033916032417_ideal
+# At subtrip level
+#1507731707022301 odd - lots of overlapping tracks, doesn't look as expected
+#1507731707022302 problem - outside of vtrb
+#1507731707070101
 
 ##############################
 # Example plots of ideal trip for presentation 
-this_trip = "33033916032417"
+this_trip = "1507731707022301"
 
 these_vtrb <- sf_bias %>%
   filter(imgid==this_trip, type == "vtrb")
@@ -179,15 +181,37 @@ this_sfch <- sf_bias %>%
 this_sfch  <-cbind(this_sfch, shape = "polygon")
 
 these_points <- sf_gte %>%
-  filter(imgid_chr==this_trip)
+  filter(imgid_chr==this_trip) %>%
+  select(area) %>%
+  mutate(area = as.factor(area))
 
 # Change ordering manually
 these_vtrb$percentile <- factor(these_vtrb$percentile,
-                                levels = c("100th", "75th", "50th", "25th"))
+                                levels = c("90th", "75th", "50th", "25th"))
+
+# plot polygon with points
+(this_plot<- ggplot()+
+  geom_sf(data=this_sfch, aes(color= shape), fill=NA, size = 2)+
+  scale_color_manual(values = alpha("red", .75))+
+  #geom_sf(data = these_points, aes(shape = area),
+  #        size = 1, alpha = .15, color = "white")+
+  geom_sf(data = these_points, size = 1, alpha = .1)+
+  xlab("Longitude")+
+  ylab("Latitude")+
+  guides(shape = "none")+
+  labs(title = paste0("Example subtrip: ", this_trip),
+       subtitle = paste0("includes ", length(these_points$area), " GPS points and ",
+                         length(unique(these_points$area)), " area(s)"),
+       color = "Active fishing Footprint") +
+  annotation_scale(location = "br", width_hint = 0.5) +
+  annotation_north_arrow(location = "br", which_north = "true",
+                         height = unit(.3, "in"), width = unit(.3, "in"), 
+                         pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
+                         style = north_arrow_fancy_orienteering))
 
 # single convex hull with points
 (plot_example_sfch<- ggplot()+
-  geom_sf(data=this_sfch, color = "red", fill=NA, size = 4)+
+  geom_sf(data=this_sfch, color = "red", fill=NA, size = 1)+
   geom_sf(data = these_points, size = 1, alpha = .1)+
   xlab("Longitude")+
   ylab("Latitude")+
@@ -234,7 +258,7 @@ these_points <- sf_gte %>%
 
 # Change ordering manually
 these_vtrb$percentile <- factor(these_vtrb$percentile,
-                                levels = c("100th", "75th", "50th", "25th"))
+                                levels = c("90th", "75th", "50th", "25th"))
 
 (plot_example_vtrb<- ggplot()+
     geom_sf(data=these_vtrb, aes(fill = percentile), color = NA)+
