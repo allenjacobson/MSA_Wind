@@ -48,11 +48,6 @@ dt_revenue <- as.data.table(readRDS(paste0(dir_output,"/dt_revenue.rds")))
 dt_imgids[,tripid_chr :=as.character(TRIP_ID)][
   ,imgid_chr :=as.character(IMG_ID)]
 
-test <- dt_imgids[, .(IMG_ID, TRIP_ID)]
-format(test, scientific=F)
-test[, imgid_chr := as.character(IMG_ID)]
-remove(test)
-
 dt_revenue[, imgid_chr := as.character(IMGID)][
   , char_imgid := nchar(imgid_chr)]
 
@@ -96,6 +91,10 @@ length(unique(dt_imgids_matched$imgid_chr)) == length(unique(dt_revenue_matched$
 dt_imgids_matched[, group_id := .GRP, by = .(tripid_chr, EFFORT_NUM)]
 dt_gte_matched[, group_id := .GRP, by = .(tripid_chr, EFFORT_NUM)]
 
+dt_imgids_matched[, group_id := paste0(tripid_chr, "_",EFFORT_NUM)]
+dt_gte_matched[, group_id := paste0(tripid_chr, "_",EFFORT_NUM)]
+
+
 ##############################
 # Join tables by trip_area and group_id
 # join cleaned imgids to dt_gte_matched
@@ -112,6 +111,22 @@ setkey(dt_gte_joined, imgid_chr)
 setkey(dt_revenue_matched, imgid_chr)
 dt_gte_revenue <- dt_gte_joined[dt_revenue_matched, nomatch = 0] 
 
+###############################
+# test join - should be one trip_id for each imgid if the join was done correctly
+test <- unique(dt_gte_joined[, .(imgid_chr, tripid_chr)])
+test_count <- test[, .N, by = imgid_chr]
+test_max <- test_count[, lapply(.SD, max)]
+# good only 1
+test <- unique(dt_imgids_matched[, .(imgid_chr, tripid_chr)])
+test_count <- test[, .N, by = imgid_chr]
+test_max <- test_count[, lapply(.SD, max)]
+# good only 1
+test <- unique(dt_gte_revenue[, .(imgid_chr, tripid_chr)])
+test_count <- test[, .N, by = imgid_chr]
+test_max <- test_count[, lapply(.SD, max)]
+
+###############################
+#save cleaned and matched data
 dt_gte_final <- dt_gte_revenue
 saveRDS(dt_gte_final, paste0(dir_output,"/dt_gte.rds"))
 saveRDS(dt_imgids_matched, paste0(dir_output, "/dt_imgids_matched.rds"))
@@ -131,9 +146,3 @@ saveRDS(sf_gte_nad83, paste0(dir_output,"/sf_gte_nad83.rds"))
 
 # can't use this - b/c names are too long for a shp file, must be <10 chr
 # st_write(sf_gte_nad83, paste(dir_output, "/sf_gte_nad83.shp"), append = FALSE)
-
-##############################
-# Confirm there is only one imgid for each group_id
-dt_imgids_test <- dt_imgids_matched[, .(imgid_chr, group_id)]
-dt_imgids_summary <- dt_imgids_test[, .N, by = group_id]
-dt_multiple_imgids <- dt_imgids_summary[N>1] # this should be an empty table
