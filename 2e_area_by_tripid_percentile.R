@@ -52,17 +52,17 @@ for (this_trip in unique_trips) {
   dt_25 <- dt_paths_vtrb_split[tripid==this_trip & percentile=="25th"]
   dt_50 <- dt_paths_vtrb_split[tripid==this_trip & percentile=="50th"]
   dt_75 <- dt_paths_vtrb_split[tripid==this_trip & percentile=="75th"]
-  dt_100 <- dt_paths_vtrb_split[tripid==this_trip & percentile=="100th"]
+  dt_90 <- dt_paths_vtrb_split[tripid==this_trip & percentile=="90th"]
   # create mosaic for each percentile - these are non-cumulative
   mosaic_25<- paths_to_mosaic(dt_25$paths, this_trip)
   mosaic_50<- paths_to_mosaic(dt_50$paths, this_trip)
   mosaic_75<- paths_to_mosaic(dt_75$paths, this_trip)
-  mosaic_100<- paths_to_mosaic(dt_100$paths, this_trip)
+  mosaic_90<- paths_to_mosaic(dt_90$paths, this_trip)
   # create cumulative mosaic for each percentile
   cumulative_25 <- mosaic_25
   cumulative_50 <- mosaic(mosaic_50, cumulative_25, fun = "max") 
   cumulative_75 <- mosaic(mosaic_75, cumulative_50, fun = "max")
-  cumulative_100 <- mosaic(mosaic_100, cumulative_75, fun = "max")
+  cumulative_90 <- mosaic(mosaic_90, cumulative_75, fun = "max")
   # create file names and write cumulative rasters
   path_base <- paste0(dir_output, "/vtrbs_cumulative_tripid")
   
@@ -75,12 +75,12 @@ for (this_trip in unique_trips) {
   path_75 <- paste0(path_base, "/75thPercentile_", this_trip,".tif")
   writeRaster(cumulative_75, path_75, overwrite=TRUE)
   
-  path_100 <- paste0(path_base, "/100thPercentile_", this_trip,".tif")
-  writeRaster(cumulative_100, path_100, overwrite=TRUE)
+  path_90 <- paste0(path_base, "/90thPercentile_", this_trip,".tif")
+  writeRaster(cumulative_90, path_90, overwrite=TRUE)
   
   these_paths <- data.table(tripid= c(this_trip, this_trip, this_trip, this_trip),
-                           percentile=c("25th", "50th", "75th", "100th"),
-                           paths = c(path_25,path_50, path_75,path_100))
+                           percentile=c("25th", "50th", "75th", "90th"),
+                           paths = c(path_25,path_50, path_75,path_90))
   # Add file paths to data.table
   dt_paths_vtrb_cumulative_tripid <- rbindlist(list(dt_paths_vtrb_cumulative_tripid, these_paths))
 }
