@@ -42,19 +42,21 @@ dt_paths_vtrb_split<- readRDS(paste0(dir_output, "/dt_paths_vtrb_split_by_percen
 
 ##############################
 # Raster mosaics by percentiles
-unique_trips <- unique(dt_paths_vtrb_split$trip_area)
+unique_trips <- unique(dt_paths_vtrb_split$imgid)
 #this_trip <- unique_trips[[2]]
 
 # create empty data.table to add file paths
 #dtCumulativeRasterPaths <- data.table()
 dt_paths_vtrb_cumulative_imgid <- data.table()
 
+this_trip <- "3104731611041101"
+this_trip <- "3206451704290101"
 
 for (this_trip in unique_trips) {
-  dt_25 <- dt_paths_vtrb_split[trip_area==this_trip & percentile=="25th"]
-  dt_50 <- dt_paths_vtrb_split[trip_area==this_trip & percentile=="50th"]
-  dt_75 <- dt_paths_vtrb_split[trip_area==this_trip & percentile=="75th"]
-  dt_90 <- dt_paths_vtrb_split[trip_area==this_trip & percentile=="90th"]
+  dt_25 <- dt_paths_vtrb_split[imgid==this_trip & percentile=="25th"]
+  dt_50 <- dt_paths_vtrb_split[imgid==this_trip & percentile=="50th"]
+  dt_75 <- dt_paths_vtrb_split[imgid==this_trip & percentile=="75th"]
+  dt_90 <- dt_paths_vtrb_split[imgid==this_trip & percentile=="90th"]
   # create mosaic for each percentile - these are non-cumulative
   mosaic_25<- paths_to_mosaic(dt_25$paths, this_trip)
   mosaic_50<- paths_to_mosaic(dt_50$paths, this_trip)
@@ -80,13 +82,11 @@ for (this_trip in unique_trips) {
   path_90 <- paste0(path_base, "/90thPercentile_", this_trip,".tif")
   writeRaster(cumulative_90, path_90, overwrite=TRUE)
   
-  this_trip_id <- unique(dt_paths_vtrb_split[trip_area == this_trip,tripid])
-  this_imgid <- unique(dt_paths_vtrb_split[trip_area == this_trip,imgid])
-  
+  this_trip_id <- unique(dt_paths_vtrb_split[imgid == this_trip,tripid])
+
   
   these_paths <- data.table(tripid =c(this_trip_id, this_trip_id, this_trip_id, this_trip_id),
-                            trip_area= c(this_trip, this_trip, this_trip, this_trip),
-                            imgid = c(this_imgid, this_imgid, this_imgid, this_imgid),
+                            imgid= c(this_trip, this_trip, this_trip, this_trip),
                             percentile=c("25th", "50th", "75th", "90th"),
                             paths = c(path_25,path_50, path_75,path_90))
   # Add file paths to data.table
@@ -95,3 +95,6 @@ for (this_trip in unique_trips) {
 
 saveRDS(dt_paths_vtrb_cumulative_imgid,
         paste0(dir_output, "/dt_paths_vtrb_cumulative_imgid.rds"))
+
+test <- dt_paths_vtrb_cumulative_imgid %>%
+  filter(imgid == this_trip)

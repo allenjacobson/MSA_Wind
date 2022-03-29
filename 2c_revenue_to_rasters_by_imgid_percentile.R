@@ -45,7 +45,7 @@ dt[, revenue_per_cell_75 := value_lower_3*value_gdp]
 dt[, revenue_per_cell_50 := value_lower_2*value_gdp]
 dt[, revenue_per_cell_25 := value_lower_1*value_gdp]
 
-saveRDS(dt, paste0(dir_output, "/dt_paths_vtrb_split_matched_revenue") )
+saveRDS(dt, paste0(dir_output, "/dt_paths_vtrb_split_matched_revenue.rds") )
 ##############################
 # Raster mosaics by percentiles
 unique_trips <- unique(dt$imgid)

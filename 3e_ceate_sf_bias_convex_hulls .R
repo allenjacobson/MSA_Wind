@@ -53,6 +53,7 @@ st_crs(sf_bias) <- this_crs #set CRS to match existing SF
 #unique_trips <- unique(sf_buffered_hulls_subtrip$tripid_chr) # not all ids in SFCH are in VTRB set
 unique_trips <- unique(sf_buffered_hulls_subtrip$imgid)
 this_trip <- unique_trips[[163]]
+this_trip <- "3206451704290101"
 
 for (this_trip in unique_trips) {
   # filter rows in CH that match trip_id
@@ -68,7 +69,7 @@ for (this_trip in unique_trips) {
     filter(imgid == this_trip) %>%
     select(imgid, percentile) %>%
     st_make_valid()
-  
+x
   # calculate intersection (later repeat this for difference)
   sf_intersection <- st_intersection(this_sfch, this_vtrb) # creates new SF with intersection as geometry
   if(length(sf_intersection$imgid) > 0 ){

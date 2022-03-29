@@ -37,6 +37,14 @@ dt_paths_vtrb_cumulative_tripid <-
 dt_paths_vtrb_cumulative_imgid <-
   readRDS(paste0(dir_output, "/dt_paths_vtrb_cumulative_imgid.rds"))
 
+dt_paths_vtrb_split_matched_revenue <- 
+  readRDS(paste0(dir_output, "/dt_paths_vtrb_split_matched_revenue.rds"))
+
+#this_trip <- "3104731611041101"
+#this_trip <- "3206451704290101"
+
+#test <- dt_paths_vtrb_cumulative_imgid %>%
+#  filter(imgid == this_trip)
 ##############################
 #Build SF for VTR Buffers
 paths <- dt_paths_vtrb_cumulative_tripid$paths
@@ -75,3 +83,5 @@ sf_vtrb_cumulative_imgid <- cbind(geometry = sf_vtrb_cumulative_imgid,
 #save sf
 saveRDS(object = sf_vtrb_cumulative_imgid,
         file= paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
+
+test <- sf_vtrb_cumulative_imgid %>% filter(imgid == this_trip)

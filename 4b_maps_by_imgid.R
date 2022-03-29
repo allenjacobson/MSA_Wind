@@ -69,16 +69,17 @@ sf_shapes <- sf_shapes %>%
 
 #sf_bias is missing trips - only contains 117 - instead of 220
 unique_trips <- unique(sf_bias$imgid)
-this_trip <- unique_trips[[10]]
+#this_trip <- unique_trips[[10]]
+this_trip <- "3206451704290101"
 
 for (this_trip in unique_trips) {
   these_vtrb <- sf_bias %>%
     filter(imgid==this_trip, type == "vtrb")
   
-  this_sfch <- sf_bias %>%
+  this_shape <- sf_bias %>%
     filter(imgid==this_trip, type == "sfch")
   
-  this_sfch  <-cbind(this_sfch, shape = "polygon")
+  this_shape  <-cbind(this_shape, shape = "convex hull")
   
   these_points <- sf_gte %>%
     filter(imgid_chr==this_trip) %>%
@@ -92,7 +93,7 @@ for (this_trip in unique_trips) {
   this_plot<- ggplot()+
     geom_sf(data=these_vtrb, aes(fill = percentile), color = NA)+
     scale_fill_viridis_d(direction = -1)+
-    geom_sf(data=this_sfch, aes(color= shape), fill=NA, size = 2)+
+    geom_sf(data=this_shape, aes(color= shape), fill=NA, size = 2)+
     scale_color_manual(values = alpha("red", .75))+
     geom_sf(data = these_points, aes(shape = area),
             size = 1, alpha = .15, color = "white")+
@@ -189,10 +190,10 @@ this_trip = "1507731707070101"
 these_vtrb <- sf_bias %>%
   filter(imgid==this_trip, type == "vtrb")
 
-this_sfch <- sf_bias %>%
+this_shape <- sf_bias %>%
   filter(imgid==this_trip, type == "sfch")
 
-this_sfch  <-cbind(this_sfch, shape = "polygon")
+this_shape  <-cbind(this_shape, shape = "convex hull")
 
 these_points <- sf_gte %>%
   filter(imgid_chr==this_trip) %>%
@@ -203,9 +204,9 @@ these_points <- sf_gte %>%
 these_vtrb$percentile <- factor(these_vtrb$percentile,
                                 levels = c("90th", "75th", "50th", "25th"))
 
-# plot polygon with points
+# plot convex hull with points
 (this_plot<- ggplot()+
-  geom_sf(data=this_sfch, aes(color= shape), fill=NA, size = 2)+
+  geom_sf(data=this_shape, aes(color= shape), fill=NA, size = 2)+
   scale_color_manual(values = alpha("red", .75))+
   #geom_sf(data = these_points, aes(shape = area),
   #        size = 1, alpha = .15, color = "white")+
@@ -225,7 +226,7 @@ these_vtrb$percentile <- factor(these_vtrb$percentile,
 
 # single convex hull with points
 (plot_example_sfch<- ggplot()+
-  geom_sf(data=this_sfch, color = "red", fill="red", alpha = .5, size = 1)+
+  geom_sf(data=this_shape, color = "red", fill="red", alpha = .5, size = 1)+
   geom_sf(data = these_points, size = 1, alpha = .1)+
   xlab("Longitude")+
   ylab("Latitude")+
@@ -262,10 +263,10 @@ this_trip = "32064517052800"
 these_vtrb <- sf_bias %>%
   filter(imgid==this_trip, type == "vtrb")
 
-this_sfch <- sf_bias %>%
+this_shape <- sf_bias %>%
   filter(imgid==this_trip, type == "sfch")
 
-this_sfch  <-cbind(this_sfch, shape = "convex hull")
+this_shape  <-cbind(this_shape, shape = "convex hull")
 
 these_points <- sf_gte %>%
   filter(imgid_chr==this_trip)
