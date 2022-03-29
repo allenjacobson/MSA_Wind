@@ -69,7 +69,7 @@ for (this_trip in unique_trips) {
     filter(imgid == this_trip) %>%
     select(imgid, percentile) %>%
     st_make_valid()
-x
+
   # calculate intersection (later repeat this for difference)
   sf_intersection <- st_intersection(this_sfch, this_vtrb) # creates new SF with intersection as geometry
   if(length(sf_intersection$imgid) > 0 ){
