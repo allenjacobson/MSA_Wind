@@ -73,7 +73,7 @@ sf <- sf_gte_nad83 %>%
 ##############################
 # create Convex Hull from study fleet data by trip
 #group and summarise by species, and draw hulls
-hulls <- sf_gte_nad83 %>%
+hulls <- sf %>%
   group_by(haul_id) %>%
   summarise(geometry = st_combine(geometry)) %>%
   st_convex_hull()
