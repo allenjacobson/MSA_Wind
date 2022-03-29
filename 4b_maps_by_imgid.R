@@ -10,14 +10,6 @@ library(stringr)
 
 # This script creates maps for each imgid
 
-# Problem trips - multiple buffers by imgid, and  missing percentiles?!?!
-#3104731611041101
-#3104731611041102
-#3206451704290101
-#3206451704290102
-#3206451705240101
-
-
 ##############################
 # Functions
 
@@ -41,23 +33,10 @@ sf_vtrb <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
 sf_shapes <-readRDS(file = paste0(dir_output, "/sf_buffered_hulls_subtrip"))
 sf_bias <- readRDS(file= paste0(dir_output, "/sf_bias_hulls_imgid.rds"))
 
-
-#sf_shapes <- readRDS(file = paste0(dir_output, "/sf_buffered_polygon_subtrip.rds"))
-#sf_bias <- readRDS(file= paste0(dir_output, "/sf_bias_imgid.rds"))
-
-
 # Prep data
-sf_shapes <- st_make_valid(sf_shapes)
-sf_vtrb <- st_make_valid(sf_vtrb)
+# sf_shapes <- st_make_valid(sf_shapes)
+# sf_vtrb <- st_make_valid(sf_vtrb)
 
-# old files
-#sf_vtrb_cumulative_imgid <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
-# sf_hulls_attributes_imgid <- readRDS(file = paste0(dir_output, "/sf_hulls_attributes_imgid.rds"))
-# sf_bias <- readRDS(paste0(dir_output, "/sf_bias_imgid.rds"))
-# sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
-
-##############################
-#data prep
 sf_vtrb <- sf_vtrb %>%
   filter(imgid %in% sf_shapes$imgid_chr)
 
@@ -76,10 +55,13 @@ for (this_trip in unique_trips) {
   these_vtrb <- sf_bias %>%
     filter(imgid==this_trip, type == "vtrb")
   
-  this_shape <- sf_bias %>%
-    filter(imgid==this_trip, type == "sfch")
-  
-  this_shape  <-cbind(this_shape, shape = "convex hull")
+  this_shape <- sf_shapes %>%
+    filter(imgid_chr==this_trip)
+    
+  this_boundary <- st_cast(st_union(this_shape),"POLYGON") %>% st_union
+  this_boundary <- st_sf(this_boundary)
+  #this_boundary <- st_make_valid(this_boundary[1])
+  this_boundary  <-cbind(this_boundary, shape = "convex hull")
   
   these_points <- sf_gte %>%
     filter(imgid_chr==this_trip) %>%
@@ -93,7 +75,7 @@ for (this_trip in unique_trips) {
   this_plot<- ggplot()+
     geom_sf(data=these_vtrb, aes(fill = percentile), color = NA)+
     scale_fill_viridis_d(direction = -1)+
-    geom_sf(data=this_shape, aes(color= shape), fill=NA, size = 2)+
+    geom_sf(data=this_boundary, aes(color= shape), fill="red", alpha = .75, size = .5 )+
     scale_color_manual(values = alpha("red", .75))+
     geom_sf(data = these_points, aes(shape = area),
             size = 1, alpha = .15, color = "white")+
