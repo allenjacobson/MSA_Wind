@@ -1,6 +1,7 @@
 # Loading packages
 library(data.table)
 library(sf)
+library(terra)
 library(dplyr)
 library(ggplot2)
 library(ggpubr)
@@ -14,6 +15,20 @@ library(stringr)
 
 ##############################
 # Functions
+# paths_to_mosaic <- function(list_rasters){
+#   length <- length(list_rasters)
+#   if(length == 1){
+#     mosaic <- rast(list_rasters)
+#     return(mosaic)
+#   } else if (length > 1){
+#     rasters <- lapply(X = list_rasters, FUN = rast)
+#     mosaic <- do.call(mosaic, args = c(rasters, fun = "sum"))
+#     return(mosaic)
+#   } else{ 
+#     this_warning <- paste("Error")
+#     warning(this_warning)
+#   }
+# }
 
 ##############################
 # Set directories
@@ -36,12 +51,42 @@ sf_polygon <- readRDS(file = paste0(dir_output, "/sf_buffered_polygon_subtrip.rd
 sf_vtrb <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
 sf_bias <- readRDS(file= paste0(dir_output, "/sf_bias_imgid.rds"))
 
-sf_polygon <- st_make_valid(sf_polygon)
-sf_vtrb <- st_make_valid(sf_vtrb)
+#sf_polygon <- st_make_valid(sf_polygon)
+#sf_vtrb <- st_make_valid(sf_vtrb)
 
-#sf_hulls_attributes <- readRDS(paste0(dir_output, "/sf_hulls_attributes.rds"))
-#sf_vtrb_split_mosaic <- readRDS(paste0(dir_output, "/sf_vtrb_split_mosaic.rds"))
-#sf_bias <- readRDS(paste0(dir_output, "/sf_bias.rds"))
+dt_vtr_in_af <- readRDS(file= paste0(dir_output, "/dt_paths_vtrb_revenue_cropped.rds"))
+##############################
+# Merge rasters by confidence
+dt_paths_top4 <- dt_vtr_in_af[confidence == "top4" & paths != "no intersection", paths]
+list_rasters_top4 <- lapply(X = dt_paths_top4, FUN = rast)
+mosaic_top4 <- do.call(terra::mosaic, args = c(list_rasters_top4, fun = "sum"))
+plot(mosaic_top4)
+
+dt_paths_top3 <- dt_vtr_in_af[confidence == "top3" & paths != "no intersection", paths]
+list_rasters_top3 <- lapply(X = dt_paths_top3, FUN = rast)
+mosaic_top3 <- do.call(mosaic, args = c(list_rasters_top3, fun = "sum"))
+plot(mosaic_top3)
+
+dt_paths_top2 <- dt_vtr_in_af[confidence == "top2" & paths != "no intersection", paths]
+list_rasters_top2 <- lapply(X = dt_paths_top2, FUN = rast)
+mosaic_top2 <- do.call(mosaic, args = c(list_rasters_top2, fun = "sum"))
+plot(mosaic_top2)
+
+dt_paths_top1 <- dt_vtr_in_af[confidence == "top1" & paths != "no intersection", paths]
+list_rasters_top1 <- lapply(X = dt_paths_top1, FUN = rast)
+mosaic_top1 <- do.call(mosaic, args = c(list_rasters_top1, fun = "sum"))
+plot(mosaic_top1)
+
+
+TEST <- sf_polygon %>%
+  rename(imgid = imgid_chr) %>%
+  inner_join(dt_vtr_in_af[confidence == "top4", .(imgid, revenue_active_fishing, revenue_subtrip, log_ratio, diff)])
+
+test2 <- TEST %>%
+  select(revenue_subtrip) %>%
+  plot()
+##############################
+#OLD - delete below
 
 ##############################
 #data prep
