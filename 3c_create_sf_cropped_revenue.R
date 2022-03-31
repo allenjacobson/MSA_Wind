@@ -7,6 +7,10 @@ library(terra)
 # Crop revenue raster to polygon
 # Creates SF to summarize cropped rasters
 
+#need to run this to get st_union to work
+
+sf::sf_use_s2(FALSE)
+
 ##############################
 # Functions
 
@@ -29,6 +33,16 @@ dir_data <- paste0(path_base, "Data/", repository)
 sf_shapes <- readRDS(file = paste0(dir_output, "/sf_buffered_hulls_subtrip.rds"))
 dt_revenue <- readRDS(paste0(dir_output, "/dt_paths_vtrb_split_matched_revenue.rds"))
 dt_paths <- readRDS(paste0(dir_output, "/dt_paths_vtrb_revenue.rds"))
+
+path_ny_wea <- paste0(dir_data, "/NY_Lease_2022sale_merge/NY_Lease_2022sale_merge.shp")
+path_lease_areas_merged <- paste0(dir_data, "/LeaseAreas_Merged_081621/LeaseAreas_Merged_081621.shp")
+
+#sf_ny_wea <- read_sf(path_ny_wea)
+#plot(shape_ny_wea)
+
+sf_lease_areas_merged <- read_sf(path_lease_areas_merged)
+plot(shape_lease_areas_merged)
+
 
 ##############################
 # Select example trip
@@ -93,6 +107,9 @@ dt_paths_vtrb_revenue_cropped <- dt_paths_vtrb_revenue_cropped %>%
          log_over_under = ifelse(log_ratio > 1, "over", ifelse(log_ratio < 1, "under", "equal")),
          diff_over_under := ifelse(diff > 0, "over", ifelse(log_ratio < 0, "under", "equal")))
 
+saveRDS(object = dt_paths_vtrb_revenue_cropped,
+        file= paste0(dir_output, "/dt_paths_vtrb_revenue_cropped.rds"))
+
 (plot_revenue_bias <- ggplot(dt_paths_vtrb_revenue_cropped) +  
     geom_histogram( aes(x = log_ratio, fill = log_over_under),
                     position = "stack", boundary=1, bins = 15)+
@@ -143,3 +160,4 @@ trip_count_subset/trip_count
     labs(title = "Revenue difference for subtrips",
          subtitle = "Does VTR footprint over or underestimate revenue in active fishing footprint?",
          fill = NULL))
+
