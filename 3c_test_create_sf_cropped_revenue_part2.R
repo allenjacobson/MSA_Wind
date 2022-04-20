@@ -22,78 +22,8 @@ dir_data <- paste0(path_base, "Data/", repository)
 #sf_vtrbs <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
 sf_shapes <- readRDS(file = paste0(dir_output, "/sf_buffered_hulls_subtrip.rds"))
 dt_revenue <- readRDS(paste0(dir_output, "/dt_paths_vtrb_split_matched_revenue.rds"))
-#dt_paths_cropped <- readRDS(file= paste0(dir_output, "/dt_paths_vtrb_revenue_cropped.rds"))
+dt_paths_cropped <- readRDS(file= paste0(dir_output, "/dt_paths_vtrb_revenue_cropped.rds"))
 dt_paths <- readRDS(paste0(dir_output, "/dt_paths_vtrb_revenue.rds"))
-
-##############################
-# create mosaic of all vtrbs
-# list_rasters <- lapply(X = dt_paths$paths, FUN = rast)
-# mosaic <- do.call(terra::mosaic, args = c(list_rasters, fun = "sum"))
-# mosaic <- ifel(mosaic >= 0, 1, 0)
-# mosaic <- ifel(mosaic >= 0, 1, 0)
-# plot(mosaic)
-# this_path <- paste0(dir_output, "/all_vtrbs_base_mosaic.tif")
-# writeRaster(mosaic, this_path, overwrite=TRUE)
-# 
-# mosaic <- rast(this_path)
-
-##############################
-# crop full mosaic by trip - to create rasters with matching gridding
-unique_trips <- unique(sf_shapes$imgid)
-unique_confidence <- unique(dt_paths$confidence)
-
-dt_paths_af_revenue_rasters <- data.table()
-
-#this_trip <- unique_trips[[1]]
-#this_confidence <- "top1"
-#this_trip <- "3303391607050001"        
-
-for(this_trip in unique_trips){
-  this_rast <- mosaic
-  this_shape <- sf_shapes %>% filter(imgid_chr== this_trip)
-  # create polygons from multipolygon - then create union of all polygons - move this to previous step
-  this_vect <- st_cast(st_union(this_shape),"POLYGON") %>% st_union %>% vect()
-  this_revenue <- extract(x = this_rast, y = this_vect, exact = TRUE) %>%
-    rename("value" = names(this_rast)) %>%
-    mutate(cell_revenue = value*fraction)%>%
-    summarise(total_revenue = sum(cell_revenue))
-  all_revenue <- dt_revenue[imgid == this_trip & percentile == "90th", value_gdp]
-  # Sum intersecting values
-  if(is.nan(this_revenue[[1]])){
-    this_path <- "no intersection - error"
-    this_cell_revenue <- NA
-  } else{
-    # Mask raster by shapes
-    this_cropped_rast <- this_rast %>% mask(this_vect) %>% crop(this_vect)
-    # Count cells, divide all revenue by cells, and set value
-    these_cells <- unname(unlist(global(this_cropped_rast == 1, sum, na.rm=TRUE)))
-    this_cell_revenue <- all_revenue/these_cells
-    this_rast_revenue <- ifel(this_cropped_rast >= 0, this_cell_revenue, 0)
-    # write raster
-    this_directory <- paste0(dir_output, "/af_all_revenue/")
-    this_path <- paste0(this_directory, this_trip, ".tif")
-    writeRaster(this_rast_revenue, this_path, overwrite=TRUE)
-    # Count cells in cropped raster for comparison
-    if(dt_paths_cropped[imgid == this_trip & confidence == "top4", paths] ==  "no intersection"){
-      these_cells_vtr = 0
-    } else {
-      this_vtr_rast_cropped <- rast(dt_paths_cropped[imgid == this_trip & confidence == "top4", paths])
-      these_cells_vtr <- unname(unlist(global(this_vtr_rast_cropped >= 0, sum, na.rm=TRUE)))
-    }
-    cell_test <- these_cells == these_cells_vtr
-  }
-  # Write raster
-  these_data <- data.table(imgid= this_trip,
-                           revenue_subtrip = all_revenue,
-                           cells_all_rev = this_cell_revenue,
-                           cells_vtr_rev = these_cells_vtr,
-                           cell_test = cell_test,
-                           paths = this_path)
-  dt_paths_af_revenue_rasters <- rbindlist(list(dt_paths_af_revenue_rasters, these_data), fill=TRUE)
-}
-
-saveRDS(object = dt_paths_af_revenue_rasters,
-        file= paste0(dir_output, "/dt_paths_af_revenue_rasters.rds"))
 
 ##############################
 # make this a new script

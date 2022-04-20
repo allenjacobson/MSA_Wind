@@ -65,6 +65,20 @@ sf_gte_nad83 <- readRDS(paste0(dir_output,"/sf_gte_nad83.rds"))
 
 dt_paths_vtrb <- readRDS(paste0(dir_output, "/dt_paths_vtrb.rds"))
 
+
+##############################
+# Summarize data for presentation
+dt_gte<- setDT(st_drop_geometry(sf_gte_nad83))
+dt_gte_haul <- dt_gte[, .N, by = .(haul_id, imgid_chr)]
+min(dt_gte_haul$N)
+max(dt_gte_haul$N)
+median(dt_gte_haul$N)
+
+dt_gte_subtrip <- dt_gte_haul[, .N, by = .(imgid_chr)]
+min(dt_gte_subtrip$N)
+max(dt_gte_subtrip$N)
+median(dt_gte_subtrip$N)
+
 ##############################
 # data prep
 sf <- sf_gte_nad83 %>%
@@ -77,7 +91,6 @@ hulls <- sf %>%
   group_by(haul_id) %>%
   summarise(geometry = st_combine(geometry)) %>%
   st_convex_hull()
-
 
 ############################## Need to modify
 # build feature table by haul_id
@@ -101,6 +114,21 @@ sf_buffered_hulls_haulid<- st_buffer(sf_hulls_haulid,
 saveRDS(object = sf_buffered_hulls_haulid,
         file = paste0(dir_output, "/sf_buffered_hulls_haulid.rds"))
 
+
+# plot for presentation
+this_haul <- dt_gte_haul$haul_id[[1]]
+
+ex_hull <- hulls %>% filter(haul_id == this_haul)
+ex_buffer <-sf_buffered_hulls_haulid %>% filter(haul_id == this_haul)
+ex_points <- sf %>% filter (haul_id == this_haul) %>% select(LANDED_TOTAL)
+plot_hull_points<- ggplot() + geom_sf(data = ex_hull, fill = "white") +
+  geom_sf(data = ex_buffer, color = "red", fill = NA,  linetype='dotdash') + geom_sf(data = ex_points)
+          
+height = 8
+width = height*.618
+ggsave(filename = paste0(dir_output, "/plot_hull_points.png"),
+       plot = plot_hull_points, width = width, height = height)
+
 ##############################
 # build feature table by subtrip
 sf_buffered_hulls_subtrip <-
@@ -116,6 +144,13 @@ sf_buffered_hulls_subtrip <- sf_by_group(sf_attributes = sf_buffered_hulls_hauli
 saveRDS(object = sf_buffered_hulls_subtrip,
         file = paste0(dir_output, "/sf_buffered_hulls_subtrip.rds"))
 
+# plot for presentation
+this_trip <- dt_gte_subtrip$imgid_chr[[1]]
+ex_trip <- sf_buffered_hulls_haulid %>% filter (imgid_chr == this_trip) %>% select(haul_id)
+plot_trip<- ggplot() + geom_sf(data = ex_trip, aes(fill = haul_id)) +
+  scale_fill_viridis_d(alpha = .25, option = "magma")
+ggsave(filename = paste0(dir_output, "/plot_trip.png"),
+       plot = plot_trip, width = width, height = height)  
 ##############################
 # build feature table by trip
 sf_buffered_hulls_trip <-

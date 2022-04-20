@@ -112,31 +112,39 @@ dt_wea_revenue[, .N, by = .(wea_lease_numb) ]
 unique_wea <- unique(dt_wea_revenue$wea_lease_numb)
 unique_confidence <- unique(dt_vtr_revenue$confidence)
 
-this_wea <- unique_wea[[11]]
+this_wea <- unique_wea[[5]]
 this_confidence <- unique_confidence[[4]]
 
 sf_use_s2(FALSE) 
 # added to remove this error
 # Error in (function (cond)  : error in evaluating the argument 'x' in selecting a method for function 'vect': Evaluation error: Found 1 feature with invalid spherical geometry.[1] Loop 1 is not valid: Edge 0 has duplicate vertex with edge 5.
 
+test <- dt_wea_revenue[total_revenue_af := sum()]
+length(unique(test$wea_lease_numb))
+
 for(this_wea in unique_wea){
-  #for(this_confidence in unique_confidence){
-    these_trips_vtr <- dt_wea_revenue[wea_lease_numb == this_wea & revenue_vtr > 0]
-    these_trips_af <- dt_wea_revenue[wea_lease_numb == this_wea & revenue_af > 0]
+  for(this_confidence in unique_confidence){
+    these_trips_vtr <- dt_wea_revenue[wea_lease_numb == this_wea & revenue_vtr > 0 & confidence == this_confidence]
+    these_trips_af <- dt_wea_revenue[wea_lease_numb == this_wea & revenue_af > 0 & confidence == this_confidence]
     # select wea sf and make spat vector
     this_sf_wea <-sf_lease_areas_merged %>% filter(Lease_Numb == this_wea) %>% select(State)
-    this_vect <- st_cast(st_union(this_sf_wea),"POLYGON") %>% st_union %>% vect()
     # count trips by footprint type
     n_vtr <-length(these_trips_vtr$imgid)
     n_af <- length(these_trips_af$imgid)
     # build mosaics if lenghts are non-zero for vtr and af trip lists
     # And calculate overlap for vtr and af footprints
-    if(n_vtr > 0){
+    if(n_vtr < 2 & n_af < 2){
+      warning(paste0("VTR (", n_vtr,") and AF (",n_af,") footprints had zero or too few intersections this WEA (", this_wea, ") at this confidence level (",this_confidence,")"))
+      next
+    }
+    else if(n_vtr > 1){
       these_vtrs <- lapply(X = dt_vtr_revenue[
         imgid %in% these_trips_vtr$imgid & confidence == this_confidence,paths],
         FUN = rast)
       this_vtr_mosaic <- do.call(terra::mosaic, args = c(these_vtrs, fun = "sum"))
       this_sf_wea <- st_transform(this_sf_wea, st_crs(this_vtr_mosaic))
+      this_vect <- st_cast(st_union(this_sf_wea),"POLYGON") %>% st_union %>% vect()
+      this_wea_extent <- ext(this_vect)
       this_revenue_vtr <- extract(x = this_vtr_mosaic, y = this_vect, exact = TRUE) %>%
         rename("value" = names(this_vtr_mosaic)) %>%
         mutate(cell_revenue = value*fraction)%>%
@@ -170,22 +178,16 @@ for(this_wea in unique_wea){
                                height = unit(.3, "in"), width = unit(.3, "in"), 
                                pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
                                style = north_arrow_fancy_orienteering)
-      # Crop to wea
-      this_vtr_mosaic_cropped <- crop(this_vtr_mosaic, this_vect, snap="out")
-      # convert to a df for plotting in two steps, - repeat for cropped
-      this_vtr_mosaic_df_cropped <- as.data.frame(this_vtr_mosaic_cropped,
-                                                  xy=TRUE, cells=TRUE, na.rm=TRUE)
-      this_vtr_mosaic_df_cropped<- this_vtr_mosaic_df_cropped %>%
-        rename(value = paste0("X",names(this_vtr_mosaic_cropped)))
-      this_vtr_mosaic_df_cropped[this_vtr_mosaic_df_cropped== 0] = NA
-      this_vtr_mosaic_df_cropped <- na.omit(this_vtr_mosaic_df_cropped)
       # Cropped plot
       this_plot_vtr_cropped <- ggplot() +
-        geom_tile(data = this_vtr_mosaic_df_cropped, aes(x = x, y = y, fill = value)) + 
+        geom_sf(data=these_sf_vtr, fill = NA, color = NA)+
+        geom_tile(data = this_vtr_mosaic_df, aes(x = x, y = y, fill = value)) + 
         scale_fill_viridis_c(direction = -1, limits = c(0, 600))+
         geom_sf(data=this_sf_wea, color = "red", fill = NA)+
         xlab("Longitude")+
+        xlim(xmin(this_wea_extent)*.999, xmax(this_wea_extent)*1.001)+
         ylab("Latitude")+
+        ylim(ymin(this_wea_extent)*.999, ymax(this_wea_extent)*1.001)+
         labs(title = paste0("Vessel Trip Report footprints \noverlapping with revenue within ", this_wea),
              subtitle = paste0("WEA intersects ", length(unique(these_trips_vtr$imgid)),
                                " subtrips and overlaps $",
@@ -202,10 +204,12 @@ for(this_wea in unique_wea){
                                style = north_arrow_fancy_orienteering)
       
     }
-    if(n_af > 0){
+    else if(n_af > 1){
       these_afs <- lapply(X = dt_af_revenue[imgid %in% these_trips_af$imgid, paths], FUN = rast)
       this_af_mosaic <- do.call(terra::mosaic, args = c(these_afs, fun = "sum"))
       this_sf_wea <- st_transform(this_sf_wea, st_crs(this_af_mosaic))
+      this_vect <- st_cast(st_union(this_sf_wea),"POLYGON") %>% st_union %>% vect()
+      this_wea_extent <- ext(this_vect)
       this_revenue_af <- extract(x = this_af_mosaic, y = this_vect, exact = TRUE) %>%
         rename("value" = names(this_af_mosaic)) %>%
         mutate(cell_revenue = value*fraction)%>%
@@ -215,7 +219,7 @@ for(this_wea in unique_wea){
       this_af_mosaic_df<- this_af_mosaic_df %>% rename(value = paste0("X",names(this_af_mosaic)))
       this_af_mosaic_df[this_af_mosaic_df== 0] = NA
       this_af_mosaic_df <- na.omit(this_af_mosaic_df)
-      if(n_vtr > 0){
+      if(n_vtr > 1){
         this_plot_af <- ggplot() +
           geom_sf(data=these_sf_vtr, fill = "dark grey", color = NA)+
           geom_tile(data = this_af_mosaic_df, aes(x = x, y = y, fill = value)) + 
@@ -223,6 +227,28 @@ for(this_wea in unique_wea){
           geom_sf(data=this_sf_wea, color = "red", fill = NA)+
           xlab("Longitude")+
           ylab("Latitude")+
+          labs(title = paste0("Active Fishing footprints \noverlapping with revenue within ", this_wea),
+               subtitle = paste0("WEA intersects ", length(unique(these_trips_af$imgid)),
+                                 " subtrips and overlaps $",
+                                 round(this_revenue_af$total_revenue, digits = 0),
+                                 " revenue"),
+               fill = "Revenue",
+               caption = paste0("Revenue is in US dollars per 0.25 km2 and adjusted to 2019 annual GDP \nLeased to ",
+                                dt_lease_areas_merged[Lease_Numb == this_wea, Company],
+                                "\nLease info:", dt_lease_areas_merged[Lease_Numb == this_wea, INFO]))+
+          annotation_scale(location = "br", width_hint = 0.5) +
+          annotation_north_arrow(location = "br", which_north = "true",
+                                 height = unit(.3, "in"), width = unit(.3, "in"), 
+                                 pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
+                                 style = north_arrow_fancy_orienteering)
+        this_plot_af_cropped <- ggplot() +
+          geom_tile(data = this_af_mosaic_df, aes(x = x, y = y, fill = value)) + 
+          scale_fill_viridis_c(direction = -1, limits = c(0, 600))+
+          geom_sf(data=this_sf_wea, color = "red", fill = NA)+
+          xlab("Longitude")+
+          xlim(xmin(this_wea_extent)*.999, xmax(this_wea_extent)*1.001)+
+          ylab("Latitude")+
+          ylim(ymin(this_wea_extent)*.999, ymax(this_wea_extent)*1.001)+
           labs(title = paste0("Active Fishing footprints \noverlapping with revenue within ", this_wea),
                subtitle = paste0("WEA intersects ", length(unique(these_trips_af$imgid)),
                                  " subtrips and overlaps $",
@@ -258,22 +284,15 @@ for(this_wea in unique_wea){
                                  height = unit(.3, "in"), width = unit(.3, "in"), 
                                  pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
                                  style = north_arrow_fancy_orienteering)
-        # Crop to wea
-        this_af_mosaic_cropped <- crop(this_af_mosaic, this_vect, snap="out")
-        # convert to a df for plotting in two steps, - repeat for cropped
-        this_af_mosaic_df_cropped <- as.data.frame(this_af_mosaic_cropped,
-                                                   xy=TRUE, cells=TRUE, na.rm=TRUE)
-        this_af_mosaic_df_cropped<- this_af_mosaic_df_cropped %>%
-          rename(value = paste0("X",names(this_af_mosaic_cropped)))
-        this_af_mosaic_df_cropped[this_af_mosaic_df_cropped== 0] = NA
-        this_af_mosaic_df_cropped <- na.omit(this_af_mosaic_df_cropped)
         # Cropped plot
         this_plot_af_cropped <- ggplot() +
-          geom_tile(data = this_af_mosaic_df_cropped, aes(x = x, y = y, fill = value)) + 
+          geom_tile(data = this_af_mosaic_df, aes(x = x, y = y, fill = value)) + 
           scale_fill_viridis_c(direction = -1, limits = c(0, 600))+
           geom_sf(data=this_sf_wea, color = "red", fill = NA)+
           xlab("Longitude")+
+          xlim(xmin(this_wea_extent)*.999, xmax(this_wea_extent)*1.001)+
           ylab("Latitude")+
+          ylim(ymin(this_wea_extent)*.999, ymax(this_wea_extent)*1.001)+
           labs(title = paste0("Active Fishing footprints \noverlapping with revenue within ", this_wea),
                subtitle = paste0("WEA intersects ", length(unique(these_trips_af$imgid)),
                                  " subtrips and overlaps $",
@@ -300,7 +319,7 @@ for(this_wea in unique_wea){
                                             warning(paste0("no trips overlap ", this_wea)),
                                             warning(paste0("unknown error for ", this_wea))))))
     # Create multi panel plots
-    this_path <- paste0(dir_output, "/plots_by_wea/",this_wea_no_space,"_full_extent.png")
+    this_path <- paste0(dir_output, "/plots_by_wea/",this_wea_no_space,"_",this_confidence,"_full_extent.png")
     if(length(plotlist) ==2 ){
       height = 8 #width*.618
       width = 11 
@@ -320,7 +339,7 @@ for(this_wea in unique_wea){
                                             warning(paste0("no trips overlap cropped ", this_wea)),
                                             warning(paste0("unknown error for cropped", this_wea))))))
     # Create multi panel plots
-    this_path_cropped <- paste0(dir_output, "/plots_by_wea/",this_wea_no_space,"_cropped.png")
+    this_path_cropped <- paste0(dir_output, "/plots_by_wea/",this_wea_no_space,"_",this_confidence,"_cropped.png")
     if(length(plotlist_cropped) ==2 ){
       height = 8 #width*.618
       width = 11 
