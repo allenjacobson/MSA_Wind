@@ -4,6 +4,12 @@ library(sf)
 library(terra)
 library(dplyr)
 
+# Rasterize AFF and uniformly distribute revenue from trip
+# Creates dt_paths_af_revenue_rasters.rds, which includes the following data by subtrip:
+# total revenue, revenue per cell in aff, count of cells with revenue in aff,
+# count of cells with revenue in vtrf,
+# a test if vtrf and aff have the same number of cells, and the path to the aff
+
 ##############################
 # Set directories
 pwd <- dirname(rstudioapi::getActiveDocumentContext()$path)
@@ -13,7 +19,6 @@ repository <- "MSA_Wind_FootprintBias"
 path_base <- "C:/Users/lianne.allen-jacobso/Documents/"
 check_pwd <- paste0(path_base, "Repositories/",repository)
 pwd == check_pwd
-
 dir_output <- paste0(path_base, "Output/", repository)
 dir_data <- paste0(path_base, "Data/", repository)
 
@@ -22,23 +27,24 @@ dir_data <- paste0(path_base, "Data/", repository)
 #sf_vtrbs <- readRDS(paste0(dir_output, "/sf_vtrb_cumulative_imgid.rds"))
 sf_shapes <- readRDS(file = paste0(dir_output, "/sf_buffered_hulls_subtrip.rds"))
 dt_revenue <- readRDS(paste0(dir_output, "/dt_paths_vtrb_split_matched_revenue.rds"))
-dt_paths_cropped <- readRDS(file= paste0(dir_output, "/dt_paths_vtrb_revenue_cropped.rds"))
-dt_paths <- readRDS(paste0(dir_output, "/dt_paths_vtrb_revenue.rds"))
+dt_vtr_rev_cropped_af <- readRDS(file= paste0(dir_output, "/dt_paths_vtrb_revenue_cropped.rds"))
+
+#only need this if recreating the base mosaic
+#dt_vtr_rev <- readRDS(paste0(dir_output, "/dt_paths_vtrb_revenue.rds"))
 
 ##############################
 # create mosaic of all vtrbs
 # Instead of redoing this, just load mosaic 
-
-# list_rasters <- lapply(X = dt_paths$paths, FUN = rast)
+# list_rasters <- lapply(X = dt_vtr_rev$paths, FUN = rast)
 # mosaic <- do.call(terra::mosaic, args = c(list_rasters, fun = "sum"))
 # mosaic <- ifel(mosaic >= 0, 1, 0)
 # mosaic <- ifel(mosaic >= 0, 1, 0)
-# plot(mosaic)
+#plot(mosaic)
 this_path <- paste0(dir_output, "/all_vtrbs_base_mosaic.tif")
 #writeRaster(mosaic, this_path, overwrite=TRUE)
 
 mosaic <- rast(this_path)
-
+plot(mosaic)
 ##############################
 # Improvements !!!
 # count cells as fraction of cell
@@ -46,7 +52,7 @@ mosaic <- rast(this_path)
 ##############################
 # crop full mosaic by trip - to create rasters with matching resolution and extent
 unique_trips <- unique(sf_shapes$imgid)
-unique_confidence <- unique(dt_paths$confidence)
+unique_confidence <- unique(dt_vtr_rev_cropped_af$confidence)
 
 dt_paths_af_revenue_rasters <- data.table()
 
@@ -72,10 +78,10 @@ for(this_trip in unique_trips){
   this_path <- paste0(this_directory, this_trip, ".tif")
   writeRaster(this_rast_revenue, this_path, overwrite=TRUE)
   # Count cells in cropped raster for comparison
-  if(dt_paths_cropped[imgid == this_trip & confidence == "top4", paths] ==  "no intersection"){
+  if(dt_vtr_rev_cropped_af[imgid == this_trip & confidence == "top4", paths] ==  "no intersection"){
     these_cells_vtr = 0
   } else {
-    this_vtr_rast_cropped <- rast(dt_paths_cropped[imgid == this_trip & confidence == "top4", paths])
+    this_vtr_rast_cropped <- rast(dt_vtr_rev_cropped_af[imgid == this_trip & confidence == "top4", paths])
     these_cells_vtr <- unname(unlist(global(this_vtr_rast_cropped >= 0, sum, na.rm=TRUE)))
   }
   cell_test <- these_cells == these_cells_vtr
@@ -90,6 +96,7 @@ for(this_trip in unique_trips){
   dt_paths_af_revenue_rasters <- rbindlist(list(dt_paths_af_revenue_rasters, these_data), fill=TRUE)
 }
 
+dt_paths_af_revenue_rasters[cell_test == FALSE]
 # 7 trips fail the cell test, 
 saveRDS(object = dt_paths_af_revenue_rasters,
         file= paste0(dir_output, "/dt_paths_af_revenue_rasters.rds"))

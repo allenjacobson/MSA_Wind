@@ -131,7 +131,34 @@ dt_gte_final <- dt_gte_revenue
 saveRDS(dt_gte_final, paste0(dir_output,"/dt_gte.rds"))
 saveRDS(dt_imgids_matched, paste0(dir_output, "/dt_imgids_matched.rds"))
 saveRDS(dt_revenue_matched,  paste0(dir_output, "/dt_revenue_matched.rds"))
-        
+
+# dt_gte_final <- readRDS(paste0(dir_output,"/dt_gte.rds"))        
+# dt_revenue_matched <- readRDS(paste0(dir_output,"/dt_revenue_matched.rds"))        
+# 
+# min(dt_gte_final$sail_date)
+# max(dt_gte_final$sail_date)
+# length(unique(dt_gte_final$permit))
+# length(unique(dt_gte_final$imgid_chr))
+# length(unique(dt_gte_final$trip_id))
+# haul_count<- dt_gte_final[,.(count = length(unique(haul_id))), by = imgid_chr]
+# min(haul_count$count)
+# max(haul_count$count)
+# median(haul_count$count)
+# 
+# gte_count<- dt_gte_final[,.(count = length(unique(GPS_DATETIME))), by = haul_id]
+# min(gte_count$count)
+# max(gte_count$count)
+# median(gte_count$count)
+# 
+# min(dt_revenue_matched$value_gdp)
+# max(dt_revenue_matched$value_gdp)
+# median(dt_revenue_matched$value_gdp)
+
+# to add vessel back in (from andy)
+# there's a table in the permits schema on sole called vps_vessels
+# that has details I think there's also a tabel in the fvtr schema
+# that is just for our boats fvtr_vessels maybe
+
 ##############################
 # Coerce into SF (simple features)
 #crs_proj <- st_crs("+init=epsg:4326") # EPSG code for WGS84, which taks XY or long lat

@@ -33,15 +33,9 @@ dir_data <- paste0(path_base, "Data/", repository)
 sf_shapes <- readRDS(file = paste0(dir_output, "/sf_buffered_hulls_subtrip.rds"))
 dt_revenue <- readRDS(paste0(dir_output, "/dt_paths_vtrb_split_matched_revenue.rds"))
 dt_paths <- readRDS(paste0(dir_output, "/dt_paths_vtrb_revenue.rds"))
+sf_all_wea <-readRDS(paste0(dir_output, "/sf_all_wea.rds"))
 
-path_ny_wea <- paste0(dir_data, "/NY_Lease_2022sale_merge/NY_Lease_2022sale_merge.shp")
-path_lease_areas_merged <- paste0(dir_data, "/LeaseAreas_Merged_081621/LeaseAreas_Merged_081621.shp")
-
-#sf_ny_wea <- read_sf(path_ny_wea)
-#plot(shape_ny_wea)
-
-sf_lease_areas_merged <- read_sf(path_lease_areas_merged)
-plot(shape_lease_areas_merged)
+plot(sf_all_wea)
 
 
 ##############################
@@ -98,66 +92,66 @@ saveRDS(object = dt_paths_vtrb_revenue_cropped,
 
 dt_paths_vtrb_revenue_cropped <- readRDS(file= paste0(dir_output, "/dt_paths_vtrb_revenue_cropped.rds"))
 
-dt_paths_vtrb_revenue_cropped <- dt_paths_vtrb_revenue_cropped %>%
-  replace(is.na(.), 0) %>%
-  select(-revenue_active_fishing) %>%
-  rename(revenue_active_fishing = revenue_active_fishing.total_revenue) %>%
-  mutate(log_ratio = log(revenue_active_fishing/revenue_subtrip),
-         diff = revenue_active_fishing-revenue_subtrip,
-         log_over_under = ifelse(log_ratio > 1, "over", ifelse(log_ratio < 1, "under", "equal")),
-         diff_over_under := ifelse(diff > 0, "over", ifelse(log_ratio < 0, "under", "equal")))
-
-saveRDS(object = dt_paths_vtrb_revenue_cropped,
-        file= paste0(dir_output, "/dt_paths_vtrb_revenue_cropped.rds"))
-
-(plot_revenue_bias <- ggplot(dt_paths_vtrb_revenue_cropped) +  
-    geom_histogram( aes(x = log_ratio, fill = log_over_under),
-                    position = "stack", boundary=1, bins = 15)+
-    scale_fill_manual(values=c("black", "red"))+
-    facet_wrap(~ confidence, nrow = 1)+
-    coord_flip()+
-    ylab("Count: number of subtrips")+
-    xlab("Revenue bias*")+
-    labs(title = "Revenue bias for subtrips",
-         subtitle = "Does VTR footprint over or underestimate revenue in active fishing footprint?",
-         caption = expression(paste("*Bias = Ln",
-                                    bgroup("(",
-                                           over(Revenue[VTR],Revenue[ActiveFishing]),
-                                           ")"))), 
-         fill = NULL))
-
-(plot_revenue_diff <- ggplot(dt_paths_vtrb_revenue_cropped) +  
-    geom_histogram(aes(x = diff, fill = log_over_under),
-                   position = "stack", boundary=1, bins = 15)+
-    scale_fill_manual(values=c("black", "red"))+
-    facet_wrap(~ confidence, nrow = 1)+
-    coord_flip()+
-#    scale_x_continuous(breaks = c(1000, 30000, 60000, 90000))+
-    ylab("Count: number of subtrips")+
-    xlab("Revenue difference*")+
-    labs(title = "Revenue difference for subtrips",
-         subtitle = "Does VTR footprint over or underestimate revenue in active fishing footprint?",
-         fill = NULL))
-
-#subset with <30000 lost
-dt_paths_vtrb_revenue_cropped_subset <- dt_paths_vtrb_revenue_cropped %>%
-  filter(diff > -10000)
-
-trip_count <- length(unique(dt_paths_vtrb_revenue_cropped$imgid))
-trip_count_subset <- length(unique(dt_paths_vtrb_revenue_cropped_subset$imgid))
-trip_count_subset/trip_count
-#68% of trips!!!
-
-(plot_revenue_diff <- ggplot(dt_paths_vtrb_revenue_cropped_subset) +  
-    geom_histogram(aes(x = diff, fill = log_over_under),
-                   position = "stack", boundary=1, bins = 15)+
-    scale_fill_manual(values=c("black", "red"))+
-    facet_wrap(~ confidence, nrow = 1)+
-    coord_flip()+
-    #    scale_x_continuous(breaks = c(1000, 30000, 60000, 90000))+
-    ylab("Count: number of subtrips")+
-    xlab("Revenue difference*")+
-    labs(title = "Revenue difference for subtrips",
-         subtitle = "Does VTR footprint over or underestimate revenue in active fishing footprint?",
-         fill = NULL))
-
+# dt_paths_vtrb_revenue_cropped <- dt_paths_vtrb_revenue_cropped %>%
+#   replace(is.na(.), 0) %>%
+#   select(-revenue_active_fishing) %>%
+#   rename(revenue_active_fishing = `revenue_active_fishing.total_revenue`) %>%
+#   mutate(log_ratio = log(revenue_active_fishing/revenue_subtrip),
+#          diff = revenue_active_fishing-revenue_subtrip,
+#          log_over_under = ifelse(log_ratio > 1, "over", ifelse(log_ratio < 1, "under", "equal")),
+#          diff_over_under := ifelse(diff > 0, "over", ifelse(log_ratio < 0, "under", "equal")))
+# 
+# saveRDS(object = dt_paths_vtrb_revenue_cropped,
+#         file= paste0(dir_output, "/dt_paths_vtrb_revenue_cropped.rds"))
+# 
+# (plot_revenue_bias <- ggplot(dt_paths_vtrb_revenue_cropped) +  
+#     geom_histogram( aes(x = log_ratio, fill = log_over_under),
+#                     position = "stack", boundary=1, bins = 15)+
+#     scale_fill_manual(values=c("black", "red"))+
+#     facet_wrap(~ confidence, nrow = 1)+
+#     coord_flip()+
+#     ylab("Count: number of subtrips")+
+#     xlab("Revenue bias*")+
+#     labs(title = "Revenue bias for subtrips",
+#          subtitle = "Does VTR footprint over or underestimate revenue in active fishing footprint?",
+#          caption = expression(paste("*Bias = Ln",
+#                                     bgroup("(",
+#                                            over(Revenue[VTR],Revenue[ActiveFishing]),
+#                                            ")"))), 
+#          fill = NULL))
+# 
+# (plot_revenue_diff <- ggplot(dt_paths_vtrb_revenue_cropped) +  
+#     geom_histogram(aes(x = diff, fill = log_over_under),
+#                    position = "stack", boundary=1, bins = 15)+
+#     scale_fill_manual(values=c("black", "red"))+
+#     facet_wrap(~ confidence, nrow = 1)+
+#     coord_flip()+
+# #    scale_x_continuous(breaks = c(1000, 30000, 60000, 90000))+
+#     ylab("Count: number of subtrips")+
+#     xlab("Revenue difference*")+
+#     labs(title = "Revenue difference for subtrips",
+#          subtitle = "Does VTR footprint over or underestimate revenue in active fishing footprint?",
+#          fill = NULL))
+# 
+# #subset with <30000 lost
+# dt_paths_vtrb_revenue_cropped_subset <- dt_paths_vtrb_revenue_cropped %>%
+#   filter(diff > -10000)
+# 
+# trip_count <- length(unique(dt_paths_vtrb_revenue_cropped$imgid))
+# trip_count_subset <- length(unique(dt_paths_vtrb_revenue_cropped_subset$imgid))
+# trip_count_subset/trip_count
+# #68% of trips!!!
+# 
+# (plot_revenue_diff <- ggplot(dt_paths_vtrb_revenue_cropped_subset) +  
+#     geom_histogram(aes(x = diff, fill = log_over_under),
+#                    position = "stack", boundary=1, bins = 15)+
+#     scale_fill_manual(values=c("black", "red"))+
+#     facet_wrap(~ confidence, nrow = 1)+
+#     coord_flip()+
+#     #    scale_x_continuous(breaks = c(1000, 30000, 60000, 90000))+
+#     ylab("Count: number of subtrips")+
+#     xlab("Revenue difference*")+
+#     labs(title = "Revenue difference for subtrips",
+#          subtitle = "Does VTR footprint over or underestimate revenue in active fishing footprint?",
+#          fill = NULL))
+# 

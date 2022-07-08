@@ -116,3 +116,5 @@ for (this_trip in unique_trips) {
 
 saveRDS(dt_paths_vtrb_revenue,
         paste0(dir_output, "/dt_paths_vtrb_revenue.rds"))
+
+dt_paths_vtrb_revenue <- readRDS(paste0(dir_output, "/dt_paths_vtrb_revenue.rds"))

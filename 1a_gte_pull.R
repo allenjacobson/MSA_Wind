@@ -1,12 +1,6 @@
 library(keyring)
 library(ROracle)
 library(tidyverse)
-library(data.table)
-
-# This script pulls revenue and catch data for Longfin Squid
-# Then sums revenue by  year, f.nespp3, s.sppnm , s.fmp, IMGID
-# We adjust revenue to 2019 GDP by multiplying revenue by the inverse of the 2019 deflator value
-# Exports file as "/dt_revenue.rds"
 
 ##############################
 # Set directories
@@ -44,7 +38,8 @@ wind_head <- dbGetQuery(con,"SELECT * FROM APSD.ALL_WEA_2008_2019_070221@garfo_n
 fish_head <- dbGetQuery(con,"SELECT * FROM apsd.dmis_wind_test@garfo_nefsc.world  WHERE ROWNUM < 5")
 species_head <- dbGetQuery(con,"SELECT * FROM apsd.nespp3_fmp@garfo_nefsc.world WHERE ROWNUM < 5") 
 
-#look at column names
+
+
 wind_names <- names(wind_head)
 fish_names <- names(fish_head)
 species_names <- names(species_head)
@@ -113,4 +108,3 @@ dt_revenue %>%
 
 saveRDS(dt_revenue, paste0(dir_output,"/dt_revenue.rds"))
 
-dt_revenue <- setDT(readRDS( paste0(dir_output,"/dt_revenue.rds")))

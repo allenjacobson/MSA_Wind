@@ -129,6 +129,8 @@ width = height*.618
 ggsave(filename = paste0(dir_output, "/plot_hull_points.png"),
        plot = plot_hull_points, width = width, height = height)
 
+dt_gte_haul[haul_id == this_haul, N]
+
 ##############################
 # build feature table by subtrip
 sf_buffered_hulls_subtrip <-
@@ -150,7 +152,10 @@ ex_trip <- sf_buffered_hulls_haulid %>% filter (imgid_chr == this_trip) %>% sele
 plot_trip<- ggplot() + geom_sf(data = ex_trip, aes(fill = haul_id)) +
   scale_fill_viridis_d(alpha = .25, option = "magma")
 ggsave(filename = paste0(dir_output, "/plot_trip.png"),
-       plot = plot_trip, width = width, height = height)  
+       plot = plot_trip, width = width, height = height)
+
+length(unique(dt_gte_subtrip$imgid_chr))
+dt_gte_subtrip[imgid_chr == this_trip, N]
 ##############################
 # build feature table by trip
 sf_buffered_hulls_trip <-
