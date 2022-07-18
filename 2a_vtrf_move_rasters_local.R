@@ -41,13 +41,6 @@ dt_paths[, IDNUM_chr := as.character(IDNUM)][
 
 dt_paths_16chr <-dt_paths[nchar_IDNUM == 16]
 
-#min(dt_paths$nchar_IDNUM)
-#max(dt_paths$nchar_IDNUM)
-#dt_paths[, .N, by = "nchar_IDNUM"]
-#nchar(dt_imgids_matched$imgid_chr[[1]])
-
-
-
 # filter filePathDictionary16 to include match IMGID to IDNUM
 dt_paths_matched <- dt_paths_16chr[IDNUM_chr %in% dt_imgids_matched$imgid_chr]
 

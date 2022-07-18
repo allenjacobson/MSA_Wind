@@ -1,6 +1,8 @@
 library(keyring)
 library(ROracle)
 library(tidyverse)
+library(lubridate)
+library(MASS)
 
 ##############################
 # Original script from A. Jones
@@ -42,29 +44,30 @@ conversion_factors_cfdbs_nespp4_head <- dbGetQuery(con,"SELECT * FROM CFDBS.SPEC
 #vtr_gear_codes_head <- dbGetQuery(con,"SELECT * FROM VTR.VLGEAR WHERE ROWNUM < 5") 
 conversion_factors_vers_head <- dbGetQuery(con,"SELECT * FROM FVTR.VERS_APPORTION_CONV_TO_CATCH WHERE ROWNUM < 5") 
 trip_list_head <- dbGetQuery(con,"SELECT * FROM FVTR.VERS_TRIP_LIST WHERE ROWNUM < 5") 
-##stflt_catch_head <- dbGetQuery(con,"SELECT * FROM FVTR.STFLT_CATCH WHERE ROWNUM < 5") 
+stflt_catch_head <- dbGetQuery(con,"SELECT * FROM FVTR.STFLT_CATCH WHERE ROWNUM < 5") 
 ncrp_catch_head <- dbGetQuery(con,"SELECT * FROM FVTR.NCRP_VERS_CATCH WHERE ROWNUM  < 5") 
-#stflt_trip_head <- dbGetQuery(con,"SELECT * FROM FVTR.STFLT_TRIP WHERE ROWNUM  < 5") 
+stflt_trip_head <- dbGetQuery(con,"SELECT * FROM FVTR.STFLT_TRIP WHERE ROWNUM  < 5") 
 ncrp_trip_head <- dbGetQuery(con,"SELECT * FROM FVTR.NCRP_VERS_TRIP WHERE ROWNUM < 5") 
 ncrp_catch_head <- dbGetQuery(con,"SELECT * FROM FVTR.NCRP_VERS_CATCH WHERE ROWNUM < 5") 
 fvtr_gear_codes_head <- dbGetQuery(con,"SELECT * FROM FVTR.FVTR_GEAR_CODES WHERE ROWNUM < 5")
 gte_join_head <- dbGetQuery(con,"SELECT * FROM NERS.GTE_JOIN WHERE ROWNUM < 5")
 #vps_vessels_head <- dbGetQuery(con,"SELECT * FROM PERMIT.VPS_VESSEL WHERE ROWNUM < 5")
-#vps_vessels_new_head <- dbGetQuery(con,"SELECT * FROM PERMIT.VPS_VESSEL_NEW WHERE ROWNUM < 5")
 apsd_head <- dbGetQuery(con,"SELECT * FROM apsd.dmis_sfclam_040620@GARFO_NEFSC.world WHERE ROWNUM < 5")
 
 conversion_factors_cfdbs_names <- names(conversion_factors_cfdbs_head)
 conversion_factors_cfdbs_nespp4_names <- names(conversion_factors_cfdbs_nespp4_head)
-vtr_gear_codes_names <- names(vtr_gear_codes_head)
+conversion_factors_vers_names <- names(conversion_factors_vers_head)
 
-remove(wind_head, fish_head, species_head)
+remove(conversion_factors_cfdbs_names,
+       conversion_factors_cfdbs_nespp4_names,
+       conversion_factors_vers_names)
 
 #getting conversion factors (not the best table but what's in FVTR)
 conversion_factors_cfdbs <- dbGetQuery(con,"select * from CFDBS.SPECIES_ITIS_NE")
 conversion_factors_cfdbs_nespp4 <- dbGetQuery(con,"select * from CFDBS.SPECIES_ITIS_VTR_NESPP4")
 
-#getting gear codes
-vtr_gear_codes <- dbGetQuery(con,"select * from VTR.VLGEAR")
+#getting gear codes - do not have access here
+#vtr_gear_codes <- dbGetQuery(con,"select * from VTR.VLGEAR")
 
 #getting conversion factors (not the best table but what's in FVTR)
 conversion_factors_vers <- dbGetQuery(con,"select * from FVTR.VERS_APPORTION_CONV_TO_CATCH")
@@ -109,12 +112,9 @@ fvtr_gear_codes <- dbGetQuery(con,"select * from FVTR.FVTR_GEAR_CODES")
 
 #CRB GTE data
 gte_join <- dbGetQuery(con,"select * from NERS.GTE_JOIN")
-#gte_effort <- dbGetQuery(con,"select * from NERS.GTE_EFFORTS")
-#gte_join_audit <- dbGetQuery(con,"select * from NERS.GTE_JOIN_AUDIT")
 
 #Pulling vessel data
-vps_vessels <- dbGetQuery(con,"select * from PERMIT.VPS_VESSEL")
-vps_vessels_new <- dbGetQuery(con,"select * from PERMIT.VPS_VESSEL_NEW")
+# vps_vessels <- dbGetQuery(con,"select * from PERMIT.VPS_VESSEL")
 
 #Pulling apsd table
 apsd <- dbGetQuery(con,"select * from apsd.dmis_sfclam_040620@GARFO_NEFSC.world")
@@ -258,13 +258,14 @@ pulled_data_cf_sum_sum_sub <- pulled_data_cf_sum_sum %>% ungroup() %>%
          end_lat=as.numeric(as.character(end_lat)),
          end_lon=as.numeric(as.character(end_lon)))
 #adding a shared gear column
-pulled_data_cf_sum_sum_sub <- pulled_data_cf_sum_sum_sub %>% left_join(.,vtr_gear_codes %>% 
-                                                                         dplyr::select(GEARCODE,NEGEAR) %>% 
-                                                                         distinct() %>% drop_na() %>% arrange(GEARCODE) %>% 
-                                                                         group_by(GEARCODE) %>% top_n(1),
-                                                                       by=c('gear_code'='GEARCODE')) %>%
-dplyr::rename(gear_code_vtr=gear_code,
-                gear_code_obs=NEGEAR)
+# pulled_data_cf_sum_sum_sub <-
+#   pulled_data_cf_sum_sum_sub %>%
+  # left_join(.,vtr_gear_codes %>% 
+  #             dplyr::select(GEARCODE,NEGEAR) %>% 
+  #             distinct() %>% drop_na() %>% arrange(GEARCODE) %>% 
+  #             group_by(GEARCODE) %>% top_n(1),
+  #           by=c('gear_code'='GEARCODE')) %>%
+#  dplyr::rename(gear_code_vtr=gear_code,gear_code_obs=NEGEAR)
 
 #Subsetting this down to records where loligo are >0.39 of the catch
 #This comesd from the management world where >40% loligo is used to identify trips in the fishery
@@ -278,7 +279,11 @@ pulled_lf_squid_trips <- pulled_data_cf_sum_sum_sub %>%
 #Making a GTE join product
 #Doing this before bringing in the APSD data because it will help determine
 #how many trips are not matching that we care about
-pulled_lf_squid_trips_gte <- pulled_lf_squid_trips %>% left_join(.,gte_join %>% mutate(haul_id=paste(TRIP_ID,EFFORT_NUM),has_GTE='YES'))
+pulled_lf_squid_trips_gte <-
+  pulled_lf_squid_trips %>%
+  left_join(.,gte_join %>%
+              mutate(haul_id=paste(TRIP_ID,EFFORT_NUM),
+                     has_GTE='YES'))
 
 ##Adding the APSD data
 #Looking at the number of trips in Ben's table
@@ -301,17 +306,72 @@ SF_MATCHED_TO_APSD <- pulled_lf_squid_trips_gte %>% left_join(.,
                                                               by=c('TRIP_ID'='DOCID')) %>% 
   filter(!is.na(IMGID)) %>% #.$IMGID %>% as.character() %>% unique()
   dplyr::select(PERMIT,permit,trip_id,IMGID,sail_date,DATE_TRIP) %>% distinct()
+
 #writing a file
 #write_csv(SF_MATCHED_TO_APSD,'SF_MATCHED_TO_APSD.csv')
+saveRDS(SF_MATCHED_TO_APSD, paste0(dir_output,"/SF_MATCHED_TO_APSD.rds"))
 
 #Looking at trips that didn't match                                        
 pulled_lf_squid_trips_gte %>% dplyr::select(trip_id,permit,sail_date) %>% 
   filter(trip_id==31047310060109) %>%
   distinct() %>% arrange(desc(sail_date))
 
+########################################
+# more years
+#Subsetting this down to records where loligo are >0.39 of the catch
+#This comesd from the management world where >40% loligo is used to identify trips in the fishery
+pulled_lf_squid_trips_allyrs <- pulled_data_cf_sum_sum_sub %>%
+  filter(year(sail_date)<2023,year(sail_date)>2006) %>%
+  filter(TOT_LOLIGO_CATCH/TOT_CATCH > 0.39999)
+
+
+##MAKING SOME DATA PROJECTS
+
+#Making a GTE join product
+#Doing this before bringing in the APSD data because it will help determine
+#how many trips are not matching that we care about
+pulled_lf_squid_trips_gte_allyrs <-
+  pulled_lf_squid_trips_allyrs %>%
+  left_join(.,gte_join %>%
+              mutate(haul_id=paste(TRIP_ID,EFFORT_NUM),
+                     has_GTE='YES'))
+
+##Adding the APSD data
+#Looking at the number of trips in Ben's table
+#using a straight match between SF trip_id and DMIS' DOCID
+total_number <- pulled_lf_squid_trips_gte_allyrs  %>% .$trip_id %>% unique() %>% length()
+
+matched_number <- pulled_lf_squid_trips_gte_allyrs  %>% .$trip_id %>% unique() %>% 
+  intersect(.,apsd %>% #mutate(DOCID=str_sub(DOCID,1,14)) %>%
+              .$DOCID %>% 
+              unique()) %>% length()
+
+#Looking at the proportion of the Study Fleet trips that match TRIP_ID to DOCID
+matched_number/total_number
+
+#Joining the data sets to bring over the IMGID that is equivalent to GEARID
+SF_MATCHED_TO_APSD <-
+  pulled_lf_squid_trips_gte %>%
+  left_join(.,
+            apsd %>%
+              dplyr::select(IMGID,DOCID,DATE_TRIP,PERMIT) %>%
+              mutate(PERMIT=as.character(PERMIT)) %>% distinct(),
+            #by=c('permit'='PERMIT','sail_date'='DATE_TRIP')) %>% 
+            by=c('TRIP_ID'='DOCID')) %>% 
+  filter(!is.na(IMGID)) %>% #.$IMGID %>% as.character() %>% unique()
+  dplyr::select(PERMIT,permit,trip_id,IMGID,sail_date,DATE_TRIP) %>% distinct()
+
+#writing a file
+#write_csv(SF_MATCHED_TO_APSD,'SF_MATCHED_TO_APSD.csv')
+saveRDS(SF_MATCHED_TO_APSD, paste0(dir_output,"/SF_MATCHED_TO_APSD.rds"))
+
+
 
 apsd %>% dplyr::select(IMGID,DOCID,DATE_TRIP,PERMIT) %>%
   filter(year(DATE_TRIP)==2010) %>%
   mutate(DOCID=as.character(DOCID)) %>% 
   filter(PERMIT== 310473) %>% arrange(DATE_TRIP)
+
+#look at trips
+length(unique(SF_MATCHED_TO_APSD$IMGID))
 
