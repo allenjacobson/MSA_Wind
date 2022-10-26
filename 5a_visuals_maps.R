@@ -16,6 +16,12 @@ library(ggpubr)
 library(ggspatial)
 library(stringr)
 
+library(tidyterra) # for geom_spatraster()
+library(ggmap) # to pull base maps
+library(ggspatial) # to add scale and north arrow to map
+library(patchwork) # to plot two maps side by side
+
+
 # This script creates plots for 3 aggregated data
 # 1) Comparison of footprints
 # 2) Mismatch
@@ -99,22 +105,34 @@ dt_wea_revenue_vtr <- dt_wea_revenue[revenue_vtr > 0  & confidence == "top4",
 #dt_wea_summary <- dt_wea_revenue[, .N, by = .(confidence, type_intersection, agreement)]
 
 ##############################
-# Plot all footprings and WEAs
+# Plot all footprinst and WEAs
 
-all_vtr_paths <- dt_vtr_revenue[,paths]
+
+dt_vtr_revenue[, path_new := str_replace_all(dt_vtr_revenue$paths, "MSA_Wind_FootprintBias", "fishing_footprint_bias_for_wind")]
+  
+all_vtr_paths <- dt_vtr_revenue[,path_new]
+
 all_vtr_mosaic <- paths_to_mosaic(paths = all_vtr_paths, type = "vtr", this_wea = "all", this_confidence = "all")
-writeRaster(x = all_vtr_mosaic,
-            filename = paste0(dir_output, "/all_vtr_mosaic.tif"),
-            overwrite=TRUE)
 
-all_af_paths <- dt_af_revenue[,paths]
+# these are saved - could recreate to check they are right
+
+# writeRaster(x = all_vtr_mosaic,
+#             filename = paste0(dir_output, "/all_vtr_mosaic.tif"),
+#             overwrite=TRUE)
+
+dt_af_revenue[, path_new := str_replace_all(dt_af_revenue$paths, "MSA_Wind_FootprintBias", "fishing_footprint_bias_for_wind")]
+all_af_paths <- dt_af_revenue[,path_new]
 all_af_mosaic <- paths_to_mosaic(paths = all_af_paths, type = "af", this_wea = "all", this_confidence = "all") 
-writeRaster(all_af_mosaic,
-            filename = paste0(dir_output, "/all_af_mosaic.tif"),
-            overwrite=TRUE)
 
-f <- system.file(paste0(dir_output, "/all_af_mosaic.tif"), package="terra")
-all_af_mosaic<- rast(f)
+# writeRaster(all_af_mosaic,
+#             filename = paste0(dir_output, "/all_af_mosaic.tif"),
+#             overwrite=TRUE)
+
+# read rasters back in
+# all_af_mosaic<- rast( paste0(dir_output, "/all_af_mosaic.tif"))
+# all_vtr_mosaic<- rast(paste0(dir_output, "/all_vtr_mosaic.tif"))
+
+
 # transform for plotting
 sf_all_wea_84 <- st_transform(sf_all_wea, crs = 4326)
 sf_vtr_84 <- st_transform(sf_vtr, crs = 4326)
@@ -123,20 +141,21 @@ all_af_mosaic_84 <- project(all_af_mosaic, "EPSG:4326")
 
 all_vtr_mosaic_df <- as.data.frame(all_vtr_mosaic_84, xy=TRUE, cells=TRUE, na.rm=TRUE)
 #all_vtr_mosaic<- all_vtr_mosaic %>% rename(value = paste0("X",names(all_vtr_mosaic)))
-all_vtr_mosaic_df<- all_vtr_mosaic_df %>% rename(value = "X14796719053007_1479671905300701")
+all_vtr_mosaic_df<- all_vtr_mosaic_df %>% rename(value = names(all_vtr_mosaic))
 
 all_vtr_mosaic_df[all_vtr_mosaic_df== 0] = NA
 all_vtr_mosaic_df <- na.omit(all_vtr_mosaic_df)
 
 # convert to a df for plotting in two steps,
 all_af_mosaic_df <- as.data.frame(all_af_mosaic_84, xy=TRUE, cells=TRUE, na.rm=TRUE)
-all_af_mosaic_df<- all_af_mosaic_df %>% rename(value = paste0("X",names(all_af_mosaic)))
+#all_af_mosaic_df<- all_af_mosaic_df %>% rename(value = paste0("X",names(all_af_mosaic)))
+all_af_mosaic_df<- all_af_mosaic_df %>% rename(value = names(all_af_mosaic))
 all_af_mosaic_df[all_af_mosaic_df== 0] = NA
 all_af_mosaic_df <- na.omit(all_af_mosaic_df)
 
 
-all_vect <- st_cast(st_union(sf_all_wea_84),"POLYGON") %>% st_union %>% vect()
-all_wea_extent <- ext(all_vect)
+# all_vect <- st_cast(st_union(sf_all_wea_84),"POLYGON") %>% st_union %>% vect()
+# all_wea_extent <- ext(all_vect)
 
 
 sf_all_wea_leased <- sf_all_wea_84 %>% filter(type == "Leased Area")
@@ -152,8 +171,42 @@ b <- sf_all_wea_84 %>% select(geometry)
 #plot_usmap(regions = "counties") +
 sf_for_extent <- rbind(a,b)
 
+
+bbox <- st_bbox(sf_for_extent)
+#bounding box lowerleftlon, lowerleftlat, upperrightlon, upperrightlat
+this_location <- c(bbox["xmin"]-1,
+                   bbox["ymin"]-1,
+                   bbox["xmax"]+1,
+                   bbox["ymax"]+1)
+
+names(this_location)<- c('left', 'bottom', 'right', 'top')
+
+this_map <- get_map(location = this_location,
+                    source = "stamen",
+                    maptype = "watercolor",
+                    crop = FALSE)
+
+# (test <- ggmap(this_map) +
+#     #ggplot()+
+#     geom_spatraster(data = all_vtr_mosaic, aes(fill=value))
+#     geom_sf(data = sf,inherit.aes = FALSE, aes(color= fishing)) +
+#     coord_sf(crs = st_crs(4326))+
+#     scale_color_viridis_d(option = "rocket",
+#                           alpha = .5, begin = 0.25, end = .75)+
+#     labs(y = "Latitude", x = "Longitude",
+#          title='Complete: 1/20s',
+#          subtitle = paste0("Trip:", this_trip))+
+#     guides(color="none")+
+#     annotation_scale(location = "br", width_hint = 0.5) +
+#     annotation_north_arrow(location = "br", which_north = "true",
+#                            height = unit(.3, "in"), width = unit(.3, "in"),
+#                            pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
+#                            style = north_arrow_fancy_orienteering))
+
+
 (plot_base <- basemap(data=sf_for_extent,
                       bathymetry = FALSE))
+
 
 (plot_all_footprints <-  basemap(data=sf_for_extent, bathymetry = FALSE)+
     #plot_base +
@@ -218,7 +271,7 @@ length(unique(dt_permit[IMGID %in% these_trips_af$imgid, permit]))
 
 # build mosaics if lengths are non-zero for vtr and af trip lists
 # And calculate overlap for vtr and af footprints
-these_vtr_paths <- dt_vtr_revenue[ imgid %in% these_trips_vtr$imgid & confidence == this_confidence,paths]
+these_vtr_paths <- dt_vtr_revenue[ imgid %in% these_trips_vtr$imgid & confidence == this_confidence, path_new]
 this_vtr_mosaic <- paths_to_mosaic(paths = these_vtr_paths, type = "vtr", this_wea = this_wea, this_confidence = this_confidence)
 this_sf_wea <- st_transform(this_sf_wea, st_crs(this_vtr_mosaic))
 this_vect <- st_cast(st_union(this_sf_wea),"POLYGON") %>% st_union %>% vect()
@@ -231,7 +284,9 @@ this_revenue_vtr <- extract(x = this_vtr_mosaic, y = this_vect, exact = TRUE) %>
 these_sf_vtr <- sf_vtr %>% filter(imgid %in% these_trips_vtr$imgid)
 # convert to a df for plotting in two steps,
 this_vtr_mosaic_df <- as.data.frame(this_vtr_mosaic, xy=TRUE, cells=TRUE, na.rm=TRUE)
-this_vtr_mosaic_df<- this_vtr_mosaic_df %>% rename(value = paste0("X",names(this_vtr_mosaic)))
+#this_vtr_mosaic_df<- this_vtr_mosaic_df %>% rename(value = paste0("X",names(this_vtr_mosaic)))
+this_vtr_mosaic_df<- this_vtr_mosaic_df %>% rename(value = names(this_vtr_mosaic))
+
 this_vtr_mosaic_df[this_vtr_mosaic_df== 0] = NA
 vtr_mosaic_90 <- na.omit(this_vtr_mosaic_df)
 
@@ -259,7 +314,7 @@ vtr_mosaic_90 <- na.omit(this_vtr_mosaic_df)
                            style = north_arrow_fancy_orienteering))
 
 # plot AF
-these_af_paths <- dt_af_revenue[imgid %in% these_trips_af$imgid, paths]
+these_af_paths <- dt_af_revenue[imgid %in% these_trips_af$imgid, path_new]
 this_af_mosaic <- paths_to_mosaic(paths = these_af_paths, type = "af", this_wea = this_wea, this_confidence = this_confidence) 
 this_sf_wea <- st_transform(this_sf_wea, st_crs(this_af_mosaic))
 this_vect <- st_cast(st_union(this_sf_wea),"POLYGON") %>% st_union %>% vect()
@@ -270,7 +325,8 @@ this_revenue_af <- extract(x = this_af_mosaic, y = this_vect, exact = TRUE) %>%
   summarise(total_revenue = sum(cell_revenue, na.rm = TRUE))
 # convert to a df for plotting in two steps,
 this_af_mosaic_df <- as.data.frame(this_af_mosaic, xy=TRUE, cells=TRUE, na.rm=TRUE)
-this_af_mosaic_df<- this_af_mosaic_df %>% rename(value = paste0("X",names(this_af_mosaic)))
+#this_af_mosaic_df<- this_af_mosaic_df %>% rename(value = paste0("X",names(this_af_mosaic)))
+this_af_mosaic_df<- this_af_mosaic_df %>% rename(value = names(this_af_mosaic))
 this_af_mosaic_df[this_af_mosaic_df== 0] = NA
 this_af_mosaic_df <- na.omit(this_af_mosaic_df)
 
@@ -312,7 +368,7 @@ n_vtr <-length(these_trips_vtr$imgid)
 n_af <- length(these_trips_af$imgid)
 # build mosaics if lengths are non-zero for vtr and af trip lists
 # And calculate overlap for vtr and af footprints
-these_vtr_paths <- dt_vtr_revenue[ imgid %in% these_trips_vtr$imgid & confidence == this_confidence,paths]
+these_vtr_paths <- dt_vtr_revenue[ imgid %in% these_trips_vtr$imgid & confidence == this_confidence, path_new]
 this_vtr_mosaic <- paths_to_mosaic(paths = these_vtr_paths, type = "vtr", this_wea = this_wea, this_confidence = this_confidence)
 this_sf_wea <- st_transform(this_sf_wea, st_crs(this_vtr_mosaic))
 this_vect <- st_cast(st_union(this_sf_wea),"POLYGON") %>% st_union %>% vect()
@@ -325,7 +381,8 @@ this_revenue_vtr <- extract(x = this_vtr_mosaic, y = this_vect, exact = TRUE) %>
 these_sf_vtr <- sf_vtr %>% filter(imgid %in% these_trips_vtr$imgid)
 # convert to a df for plotting in two steps,
 this_vtr_mosaic_df <- as.data.frame(this_vtr_mosaic, xy=TRUE, cells=TRUE, na.rm=TRUE)
-this_vtr_mosaic_df<- this_vtr_mosaic_df %>% rename(value = paste0("X",names(this_vtr_mosaic)))
+#this_vtr_mosaic_df<- this_vtr_mosaic_df %>% rename(value = paste0("X",names(this_vtr_mosaic)))
+this_vtr_mosaic_df<- this_vtr_mosaic_df %>% rename(value = names(this_vtr_mosaic))
 this_vtr_mosaic_df[this_vtr_mosaic_df== 0] = NA
 vtr_mosaic_25 <- na.omit(this_vtr_mosaic_df)
 

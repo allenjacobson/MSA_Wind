@@ -17,6 +17,24 @@ library(stringr)
 # Functions
 
 ##############################
+# Theme
+
+my_theme <- theme(
+  legend.position="bottom",
+  panel.background = element_rect(fill = "transparent",
+                                  colour = "black"), # necessary to avoid drawing panel outline
+  panel.grid.major = element_blank(), # get rid of major grid
+  panel.grid.minor = element_blank(), # get rid of minor grid
+  plot.background = element_rect(fill = "transparent",
+                                 colour = NA_character_), # necessary to avoid drawing plot outline
+  legend.background = element_rect(fill = "transparent",
+                                   color = NA_character_),
+  legend.box.background = element_rect(fill = "transparent",
+                                       color = NA_character_),
+  legend.key = element_rect(fill = "transparent"),
+  text = element_text(size = 24)
+)
+##############################
 # Set directories
 pwd <- dirname(rstudioapi::getActiveDocumentContext()$path)
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
@@ -153,67 +171,67 @@ dt_wea_revenue$agreement <-
          levels = c("yes",
                     "no"))
 
-dt_wea_revenue[type_intersection == "none", type_intersection := "neither Logbook- or Active-Fishing-Footprint"][
-  type_intersection == "vtr_only", type_intersection := "only Logbook-Footprint"][
-    type_intersection == "af_only", type_intersection := "only Active-Fishing-Footprint"][
-      type_intersection == "both", type_intersection := "both Logbook- and Active-Fishing-Footprint"]
+dt_wea_revenue[type_intersection == "none", type_intersection := "None"][
+  type_intersection == "vtr_only", type_intersection := "Coarse"][
+    type_intersection == "af_only", type_intersection := "Fine"][
+      type_intersection == "both", type_intersection := "Both"]
 
 dt_wea_revenue$type_intersection <-
   factor(dt_wea_revenue$type_intersection,
-         levels = c("neither Logbook- or Active-Fishing-Footprint",
-                    "both Logbook- and Active-Fishing-Footprint",
-                    "only Logbook-Footprint",
-                    "only Active-Fishing-Footprint"))
+         levels = c("None",
+                    "Both",
+                    "Coarse",
+                    "Fine"))
 
-dt_wea_revenue[confidence == "top1", confidence := "D) Logbook-Footprint restricted to 25th percentile"][
-  confidence == "top2", confidence := "C) Logbook-Footprint restricted to 50th percentile"][
-    confidence == "top3", confidence := "B) Logbook-Footprint restricted to 75th percentile"][
-      confidence == "top4", confidence := "A) Logbook-Footprint restricted to 90th percentile"]
+dt_wea_revenue[confidence == "top1", confidence := "D) 25th"][
+  confidence == "top2", confidence := "C) 50th"][
+    confidence == "top3", confidence := "B) 75th"][
+      confidence == "top4", confidence := "A) 90th"]
 
 dt_wea_revenue$confidence <-
   factor(dt_wea_revenue$confidence,
-         levels = c("A) Logbook-Footprint restricted to 90th percentile",
-                    "B) Logbook-Footprint restricted to 75th percentile",
-                    "C) Logbook-Footprint restricted to 50th percentile",
-                    "D) Logbook-Footprint restricted to 25th percentile"))
+         levels = c("A) 90th",
+                    "B) 75th",
+                    "C) 50th",
+                    "D) 25th"))
 
 # rename for figure wea figures
 
-dt_wea_summary_long[vtrf == "vtrf25", vtrf := "D) Logbook-Footprint restricted to 25th percentile"][
-  vtrf == "vtrf50", vtrf := "C) Logbook-Footprint restricted to 50th percentile"][
-    vtrf == "vtrf75", vtrf := "B) Logbook-Footprint restricted to 75th percentile"][
-      vtrf == "vtrf90", vtrf := "A) Logbook-Footprint restricted to 90th percentile"]
+dt_wea_summary_long[vtrf == "vtrf25", vtrf := "D) 25th"][
+  vtrf == "vtrf50", vtrf := "C) 50th"][
+    vtrf == "vtrf75", vtrf := "B) 75th"][
+      vtrf == "vtrf90", vtrf := "A) 90th"]
 
 dt_wea_summary_long$vtrf <-
   factor(dt_wea_summary_long$vtrf,
-         levels = c("A) Logbook-Footprint restricted to 90th percentile",
-                    "B) Logbook-Footprint restricted to 75th percentile",
-                    "C) Logbook-Footprint restricted to 50th percentile",
-                    "D) Logbook-Footprint restricted to 25th percentile"))
+         levels = c("A) 90th",
+                    "B) 75th",
+                    "C) 50th",
+                    "D) 25th"))
 
 # dt_wea_summary_long$vtrf <-
 #    factor(dt_wea_summary_long$vtrf,
 #           levels = c("vtrf90", "vtrf75", "vtrf50", "vtrf25"))
 
-dt_wea_summary_long[, wea_1000 := ifelse(total_revenue_aff>1000,wea_id, "Other: exposure (AFF) for this WEA is <$1K")]
+dt_wea_summary_long[, wea_1000 := ifelse(total_revenue_aff>1000,wea_id, "Other: exposure is <$1K")]
 
-dt_wea_summary_long[wea_1000 == "Leased_OCS-A 0500_Bay State Wind LLC", wea_1000 := "Leased: Bay State Wind LLC (OCS-A 0500)"][
-  wea_1000 == "Leased_OCS-A 0501_Vineyard Wind 1 LLC", wea_1000 := "Leased: Vineyard Wind 1 LLC (OCS-A 0501)"][
-    wea_1000 == "Leased_OCS-A 0534_Park City Wind LLC", wea_1000 := "Leased: Park City Wind LLC (OCS-A 0534)"][
-      wea_1000 == "Leased_OCS-A 0487_Sunrise Wind, LLC", wea_1000 := "Leased: Sunrise Wind, LLC (OCS-A 0487)"][
-        wea_1000 == "Leased_OCS-A 0520_Beacon Wind LLC", wea_1000 := "Leased: Beacon Wind LLC (OCS-A 0520)"][
-          wea_1000 == "Planning_NJ18-08_Central Atlantic Call Area B", wea_1000 := "Planning: Central Atlantic Call Area B (NJ18-08)"]
+dt_wea_summary_long[wea_1000 == "Leased_OCS-A 0500_Bay State Wind LLC", wea_1000 := "Bay State Wind"][
+  wea_1000 == "Leased_OCS-A 0501_Vineyard Wind 1 LLC", wea_1000 := "Vineyard Wind 1"][
+    wea_1000 == "Leased_OCS-A 0534_Park City Wind LLC", wea_1000 := "Park City Wind"][
+      wea_1000 == "Leased_OCS-A 0487_Sunrise Wind, LLC", wea_1000 := "Sunrise Wind"][
+        wea_1000 == "Leased_OCS-A 0520_Beacon Wind LLC", wea_1000 := "Beacon Wind"][
+          wea_1000 == "Planning_NJ18-08_Central Atlantic Call Area B", wea_1000 := "Central Atlantic Call Area B"]
       
 
 dt_wea_summary_long$wea_1000 <-
   factor(dt_wea_summary_long$wea_1000,
-         levels = c("Leased: Bay State Wind LLC (OCS-A 0500)",
-                    "Leased: Vineyard Wind 1 LLC (OCS-A 0501)",
-                    "Leased: Park City Wind LLC (OCS-A 0534)",
-                    "Leased: Sunrise Wind, LLC (OCS-A 0487)",
-                    "Leased: Beacon Wind LLC (OCS-A 0520)",
-                    "Planning: Central Atlantic Call Area B (NJ18-08)",
-                    "Other: exposure (AFF) for this WEA is <$1K"))
+         levels = c("Bay State Wind",
+                    "Vineyard Wind 1",
+                    "Park City Wind",
+                    "Sunrise Wind",
+                    "Beacon Wind",
+                    "Central Atlantic Call Area B",
+                    "Other: exposure is <$1K"))
 
 names(dt_wea_summary_long)
 
@@ -236,24 +254,28 @@ dt_wea_frequency <- dt_wea_revenue[, .N, by = .(confidence, type_intersection, a
 
 (plot_footprints_intersecting_wea <- ggplot(dt_wea_frequency, aes(x=type_intersection, y=N, fill=agreement)) +
     geom_bar(stat='identity', position='dodge')+
-    scale_fill_viridis_d(begin = 0, end = .7, option = "plasma", name= "Do analyses with both types of footprints concur?")+
+    scale_fill_manual(values = c("black", "dark grey"))+
+    #scale_fill_viridis_d(begin = 0, end = .7, option = "plasma", name= "Do analyses with both types of footprints concur?")+
     scale_y_log10(labels = function(x) format(x, scientific = FALSE),
                   limits=c(1, 25000),breaks=c(1, 10, 100, 1000, 10000)
     )+
     scale_x_discrete(labels = function(x) str_wrap(x, width = 20))+
     geom_text(aes(label = N), vjust = -0.2, size = 3)+
-    ylab(paste0("Number of trips \n(by logbook identifer)"))+
+    ylab(paste0("Number of trips"))+
     xlab("Footprint Intersects with wind farm")+
-    theme(legend.position="bottom")+
-    #theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=.5), legend.position="bottom")+
+    #theme_bw()+
+    #theme(legend.position="bottom")+
+    my_theme+
+  #theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=.5), legend.position="bottom")+
     #facet_grid(~ confidence)
     facet_grid(rows = vars(confidence), labeller = labeller(confidence = label_wrap_gen(21))))
 
-height = 8
-width = height
+height = 9
+width = 8
 
-ggsave(filename = paste0(dir_output, "/plot_footprints_intersecting_wea.png"),
-       plot = plot_footprints_intersecting_wea, width = width, height = height)
+ggsave(filename = paste0(dir_output, "/plot_footprints_intersecting_wea_poster.png"),
+       plot = plot_footprints_intersecting_wea, width = width, height = height,
+       bg = "transparent")
 
 
 
@@ -263,24 +285,29 @@ ggsave(filename = paste0(dir_output, "/plot_footprints_intersecting_wea.png"),
                                        y = revenue_diff/1000)) +
     geom_abline(intercept = 0 , slope =0, color = "dark grey", size = .5)+
     geom_smooth(method = 'lm', color = "black")+#, fullrange = TRUE)+#, se=TRUE)+
-    geom_point(aes(shape = wea_1000), fill = "black", size = 3, alpha= .75)+
+    geom_point(aes(shape = wea_1000), fill = "black", size = 5, alpha= .75)+
     scale_shape_manual(name = "Wind Farm", values = c(21, 22, 23, 24, 25, 7, 1))+
     #scale_fill_viridis_d(direction = -1, option = "magma", end = .8, begin = .2)+
     facet_grid(cols = vars(vtrf), labeller = labeller(vtrf = label_wrap_gen(30)))+
 #   facet_wrap( ~ vtrf, ncol=4, labeller = labeller(vtrf = vtrf_labs, label_wrap_gen(21)))+
+    #xlim(0, 60)+
     scale_y_continuous(labels = scales::dollar_format(prefix="$ ", suffix = " K"))+
-    scale_x_continuous(labels = scales::dollar_format(prefix="$ ", suffix = " K"))+
-    xlab(expression("Exposure"["AFF"]))+
-    ylab(expression(atop("Revenue Difference (D)", "Exposure"["LF"]*" - Exposure"["AFF"])))+
+    scale_x_continuous(labels = scales::dollar_format(prefix="$ ", suffix = " K")
+                       ,breaks = c(0,20, 40,60)
+                        )+
+    xlab(expression("Exposure"["Fine"]))+
+    ylab(expression(atop("Revenue Difference (D)", "Exposure"["Coarse"]*" - Exposure"["Fine"])))+
     #scale_size_continuous(name = expression("Exposure"["AFF"]), labels = scales::dollar_format(prefix="$ ", suffix = " K"))+
+      my_theme+
     theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=.5),
-          legend.position="bottom")+
-    guides(shape = guide_legend(nrow = 4)))
+          legend.position="top")+
+    theme(legend.title=element_blank())+
+    guides(shape = guide_legend(nrow = 2)))
 
-width = 11
-height = width*.4
+width = 16
+height = 6
 
-ggsave(filename = paste0(dir_output, "/plot_overlapping_revenue_diff.png"),
+ggsave(filename = paste0(dir_output, "/plot_overlapping_revenue_diff_poster.png"),
        plot = plot_overlapping_revenue_diff,
        width = width, height = height)  
 
@@ -315,15 +342,15 @@ se_by_trip_aff <-
                            by = confidence]
                            
 summary_table <- data.table(
-  type = c("Percentile: Logbook-Footprint restricted to the",
-           "Percentile: Logbook-Footprint restricted to the",
-           "Percentile: Logbook-Footprint restricted to the",
-           "Percentile: Logbook-Footprint restricted to the",
+  type = c("Logbook-Footprint restricted to the",
+           "Logbook-Footprint restricted to the",
+           "Logbook-Footprint restricted to the",
+           "Logbook-Footprint restricted to the",
            " "),
-  footprint = c("90th",
-                "75th",
-                "50th",
-                "25th",
+  footprint = c("90th %ile",
+                "75th %ile",
+                "50th %ile",
+                "25th %ile",
                 "AFF"),
   total_trips = append(n_all_vtrf$N, n_all_aff$N[1]),
   total_exposure = append(sum_all_vtrf$V1, sum_all_aff$V1[1]),
@@ -332,15 +359,15 @@ summary_table <- data.table(
 
 summary_table$type <-
   factor(summary_table$type,
-         levels = c("Percentile: Logbook-Footprint restricted to the",
+         levels = c("Logbook-Footprint restricted to the",
                     " "))
 
 summary_table$footprint <-
   factor(summary_table$footprint,
-         levels =c("90th",
-                   "75th",
-                   "50th",
-                   "25th",
+         levels =c("90th %ile",
+                   "75th %ile",
+                   "50th %ile",
+                   "25th %ile",
                    "AFF"))
 
 plot_total_exposure <- ggplot(summary_table, aes(x = footprint, y = total_exposure))+
@@ -393,9 +420,10 @@ patchwork[[1]] = patchwork[[1]] + theme(axis.text.x = element_blank(),
                                         strip.text.x = element_blank())
 
 
-(summary_plot <- patchwork + plot_annotation(tag_levels = "A"))
+summary_plot <- patchwork + plot_annotation(tag_levels = "A")
+
 height = 11
-width = height*.5
+width = height*.4
 
 ggsave(filename = paste0(dir_output, "/summary_plot.png"),
        plot = summary_plot,
@@ -410,7 +438,3 @@ setnames(dt_wea_frequency_wide, old = "only VTRF", new = "VTRF")
 setnames(dt_wea_frequency_wide, old = "only AFF", new = "AFF")
 
 dt_wea_frequency_wide[, fidelity := both/(both+AFF)]
-
-##############################
-# Plots for poster
-
